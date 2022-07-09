@@ -61,7 +61,6 @@ def blank_dashboard(server):
                                how='left', on='serial_nr')
         global all_blanks
         all_blanks=extracting_all_blanks(conn)
-        print(all_blanks)
         global blank_data
         blank_data = extracting_blanks(
             conn, intensities[[
@@ -130,7 +129,7 @@ def blank_dashboard(server):
                  html.Div([
                             dcc.RadioItems(
                                 ['Manual', 'Automatic'],
-                                'Automatic',
+                                'Manual',
                                 id='blank_selection_id',
                                 labelStyle={'display': 'inline-block', "padding-left": '25px','marginTop': '5px'})
                  ], style=dict(display='flex', justifyContent='left', padding_bottom='10px')),  # blanktable

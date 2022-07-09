@@ -1,0 +1,95 @@
+body,
+html {
+    height: 100%;
+    background-repeat: no-repeat;
+    background-image: linear-gradient(to right, #3c706b, #072631);
+    /*background: black;
+    position: relative;*/
+    font-family: Assistant, sans-serif;
+    display: flex;
+    min-height: 90vh;
+}
+
+#login-box {
+    position: absolute;
+    /*
+    transform: translateX(-50%);
+    min-width: 35px;
+    margin: 0 auto;
+    border: 1px solid black;*/
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    align-items: center;
+    color: white;
+    background: #0726319d;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.2), 0px 10px 20px rgba(0, 0, 0, 0.3), 0px 30px 60px 1px rgba(0, 0, 0, 0.5);
+    border-radius: 20px;
+    padding: 50px;
+    z-index: 9999;
+}
+
+#login-box .name .project-name {
+    color: rgb(249, 247, 247);
+    text-align: center;
+}
+
+#login-box .name .project-company {
+    color: rgb(252, 252, 252);
+    text-align: center;
+}
+
+#login-box .name .tu-logo {
+    display: block;
+    text-align: center;
+    height: 130px;
+    width: 450px;
+}
+
+#login-box .controls input {
+    border-radius: 2px;
+    background: rgb(255, 251, 251);
+    border: 2px;
+    color: #3c706b;
+}
+
+#login-box .controls input:focus {
+    box-shadow: none;
+}
+
+#login-box .controls input:first-child {
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+}
+
+#login-box .controls input:last-child {
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+#login-box button.btn-custom {
+    border-radius: 2px;
+    background: #07263130;
+    border-color: #3c706b;
+    color: rgb(255, 255, 255);
+}
+
+#login-box button.btn-custom:hover {
+    -webkit-transition: all 500ms ease;
+    -moz-transition: all 500ms ease;
+    -ms-transition: all 500ms ease;
+    -o-transition: all 500ms ease;
+    transition: all 500ms ease;
+    background: #000000;
+    border-color: #fbfcfd;
+}
+
+#particles-js {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: 50% 50%;
+    position: fixed;
+    top: 0px;
+    z-index: 1;
+}

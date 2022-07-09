@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login page</title>
+    <link rel="stylesheet" type="text/css" href="{{url_for('static',filename='style.css')}}">
+</head>
+
+<body>
+    <div class="container">
+        <div id="login-box">
+            <div class='name'>
+                <img src="{{url_for('static',filename='WBM_weiss.png')}}" class="tu-logo" ,cen />
+                <h2 class="project-company">Institute of Geology</h2>
+                <h3 class="project-name">Ar-Ar lab</h3>
+
+                <div class="controls">
+                    <form action="/" method="POST">
+                        <input type="text" name="Username" placeholder="Username" class="form-control" />
+                        <input type="password" name="Password" placeholder="Password" class="form-control" />
+                        <select name="Database" id="db" class="form-control">
+                            <option value="arardb">arardb</option>
+                            <option value="arardb6">arardb6</option>
+                        </select>
+                        <input type="submit" value="Login" />
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div id="particles-js"></div>
+        <!-- partial -->
+        <script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css'></script>
+        <script src='https://code.jquery.com/jquery-1.11.1.min.js'></script>
+        <script src="{{url_for('static',filename='script.js')}}"></script>
+</body>
+
+</html>

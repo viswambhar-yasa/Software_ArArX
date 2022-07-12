@@ -1,4 +1,3 @@
-from msilib.sequence import tables
 from dash import Dash, html, dcc, Input, Output, State, dash_table, no_update
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
@@ -272,7 +271,7 @@ def blank_dashboard(server):
                             dcc.RadioItems(
                                 ['Linear', 'Quadratic',
                                     'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Automatic',
+                                'Quadratic',
                                 id='regression_model_A40',
                                 labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
@@ -517,7 +516,7 @@ def blank_dashboard(server):
         Y_quan = v[(v < q_hi) & (v > q_low)]
         model = regression_models(X_quan, Y_quan, regression_model)
         if regression_model == 'Linear':
-            intercept = model.intercept_[0]
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -529,35 +528,35 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.intercept_
+            intercept = model.predict([x_all[0,:]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'SupportVectors':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'ElasticNet':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Bayesian':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Automatic':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -574,7 +573,7 @@ def blank_dashboard(server):
                             linewidth=1)
         if model is None:
             return figure, 0, 0
-        return figure, intercept, loss
+        return figure, np.squeeze(intercept), loss
 
     @blank_app.callback(
         Output('figure_A37', 'figure'),
@@ -603,7 +602,7 @@ def blank_dashboard(server):
         Y_quan = v[(v < q_hi) & (v > q_low)]
         model = regression_models(X_quan, Y_quan, regression_model)
         if regression_model == 'Linear':
-            intercept = model.intercept_[0]
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -615,35 +614,35 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.intercept_
+            intercept = model.predict([x_all[0, :]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'SupportVectors':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'ElasticNet':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Bayesian':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Automatic':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -659,7 +658,7 @@ def blank_dashboard(server):
                             linewidth=1)
         if model is None:
             return figure, 0, 0
-        return figure, intercept, loss
+        return figure, np.squeeze(intercept), loss
 
     @blank_app.callback(
         Output('figure_A38', 'figure'),
@@ -686,7 +685,7 @@ def blank_dashboard(server):
         Y_quan = v[(v < q_hi) & (v > q_low)]
         model = regression_models(X_quan, Y_quan, regression_model)
         if regression_model == 'Linear':
-            intercept = model.intercept_[0]
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -698,35 +697,35 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.intercept_
+            intercept = model.predict([x_all[0, :]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'SupportVectors':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'ElasticNet':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Bayesian':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Automatic':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -742,7 +741,9 @@ def blank_dashboard(server):
                             linewidth=1)
         if model is None:
             return figure, 0, 0
-        return figure, intercept, loss
+        
+        print(intercept)
+        return figure, np.squeeze(intercept), loss
 
     @blank_app.callback(
         Output('figure_A39', 'figure'),
@@ -769,7 +770,7 @@ def blank_dashboard(server):
         Y_quan = v[(v < q_hi) & (v > q_low)]
         model = regression_models(X_quan, Y_quan, regression_model)
         if regression_model == 'Linear':
-            intercept = model.intercept_[0]
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -781,35 +782,35 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.intercept_
+            intercept = model.predict([x_all[0, :]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'SupportVectors':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'ElasticNet':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Bayesian':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Automatic':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -825,7 +826,7 @@ def blank_dashboard(server):
                             linewidth=1)
         if model is None:
             return figure, 0, 0
-        return figure, intercept, loss
+        return figure, np.squeeze(intercept), loss
 
     @blank_app.callback(
         Output('figure_A40', 'figure'),
@@ -852,7 +853,7 @@ def blank_dashboard(server):
         Y_quan = v[(v < q_hi) & (v > q_low)]
         model = regression_models(X_quan, Y_quan, regression_model)
         if regression_model == 'Linear':
-            intercept = model.intercept_[0]
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -864,35 +865,35 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.intercept_
+            intercept = model.predict([x_all[0, :]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'SupportVectors':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'ElasticNet':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Bayesian':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))
         elif regression_model == 'Automatic':
-            intercept = model.intercept_
+            intercept = model.predict([[x[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
@@ -908,7 +909,7 @@ def blank_dashboard(server):
                             linewidth=1)
         if model is None:
             return figure, 0, 0
-        return figure, intercept, loss
+        return figure, np.squeeze(intercept), loss
 
     @blank_app.callback(Output('confirmdanger1', 'displayed'),
                         Input('save-intercept', 'n_clicks'))

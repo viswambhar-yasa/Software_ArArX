@@ -419,7 +419,8 @@ def blank_dashboard(server):
             blank_data.columns.values[3] = "serial_acq_datetime"
             if not blank_data_db.empty:
                 blank_data = blank_data_db.copy()
-                blank_exp=blank_exp.extend(blank_data['blank_experiment_no'].unique())
+                blank_exp=list(blank_exp)+list(blank_data['blank_experiment_no'].unique())
+                
             #blank_data['acq_datetime'] = blank_time
             blank_list = tuple(blank_exp)+(0,)
             global blank_intercept

@@ -12,7 +12,7 @@ def Navbar():
                     "Blanks", href="/blanks/", active='exact')),
                 dbc.NavItem(dbc.NavLink("Experiments", href="/experiment/",active='exact')),
                 dbc.NavItem(dbc.NavLink("Age Analysis",
-                            href="/experiment/", active='exact')),
+                            href="/age/", active='exact')),
             ],
             brand="Thermochronology",
             brand_href="/",

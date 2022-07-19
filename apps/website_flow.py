@@ -47,6 +47,10 @@ def render_dashboard():
 def render_blank():
     return redirect(url_for('/blanks'))
 
+@website.route('/experiment')
+def render_experiment():
+    return redirect(url_for('/experiment'))
+
 # @website_flow.route('/dashboard', methods=['POST', 'GET'])
 # def dashboard():
 #     dashboard_arardb = pd.read_sql(

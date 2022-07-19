@@ -60,11 +60,14 @@ def dashboard(server):
 
 
 def update(selRows):
-    exp_index=np.squeeze(np.array(selRows))
-    cur = software_conn.cursor()
-    cur.execute(
-        f"UPDATE experiments SET exp_index = {exp_index} WHERE exp_key = 1")
-    software_conn.commit()
+    if len(selRows) > 0:
+        exp_index=np.squeeze(np.array(selRows))
+        print(exp_index)
+        cur = software_conn.cursor()
+        key=1
+        cur.execute(
+            f"UPDATE experiments SET exp_index = '{exp_index}' WHERE exp_key = {key}")
+        software_conn.commit()
     pass
 
 def dashboard_callbacks(dash_app):

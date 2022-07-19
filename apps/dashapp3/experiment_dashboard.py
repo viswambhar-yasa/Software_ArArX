@@ -1,4 +1,4 @@
-from dash import Dash, html, dcc, Input, Output, State, dash_table, no_update
+from dash import Dash, html, dcc, Input, Output, State, dash_table, no_update, register_page
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 from apps.backend.auxiliary_functions import *
@@ -10,7 +10,7 @@ import numpy as np
 # blank_intercept=[ ]
 
 
-def blank_dashboard(server):
+def experiment_dashboard(server):
     with open(r'.\apps\private_data\account_details.json', 'r') as f:
         try:
             account_details = json.load(f)
@@ -22,6 +22,7 @@ def blank_dashboard(server):
     username = account_details['username']
     password = account_details['password']
     database = account_details['database']
+    global conn
     conn = mariadb.connect(
         user=username,
         password=password,
@@ -29,12 +30,24 @@ def blank_dashboard(server):
         port=3306,
         database=database)
 
+    global software_conn
+    software_conn = mariadb.connect(
+            user=username,
+            password=password,
+            host="139.20.22.156",
+            port=3306,
+            database="ararsoftware")
+
     external_stylesheets = [
         'https://codepen.io/chriddyp/pen/bWLwgP.css', dbc.themes.BOOTSTRAP]
-    blank_app = Dash(__name__, server=server, url_base_pathname='/blanks/',
+    exp_app = Dash(__name__, server=server, url_base_pathname='/experiment/',
                      external_stylesheets=external_stylesheets)
 
-    def update_layout():
+    register_page(
+    __name__,
+    path='/experiment/')
+    
+    def exp_layout():
         global software_conn
         software_conn = mariadb.connect(
             user=username,
@@ -42,105 +55,175 @@ def blank_dashboard(server):
             host="139.20.22.156",
             port=3306,
             database="ararsoftware")
+        global pd_exp, blank_info, intensities_intercepts, intensities
         exp_index = np.squeeze(np.array(pd.read_sql(
-            "SELECT exp_index  FROM experiments where exp_key=1", software_conn)))
+            "SELECT exp_index  FROM experiments where exp_key='1'", software_conn)))
         dashboard_arardb = pd.read_sql(
             "SELECT exp_nr,material,proben_bez,project_name,sample_owner,irr_batch  FROM material order by exp_nr desc", conn)
         dashboard_arardb["id"] = dashboard_arardb.index
         global exp_nr
         exp_nr = str(dashboard_arardb.iloc[exp_index][0])
-        global pd_exp, experiment_info
         experiment_info = extract_experiment_info(exp_nr, database)
-
         experiment_info = extract_irradiation(conn, experiment_info)
         pd_exp = pd.DataFrame.from_dict(experiment_info)
         pd_exp = pd_exp[['Exp_No', 'Exp_type', 'Sample', 'Material', 'Project', 'Owner',
                          'Irradiation', 'Plate', 'Hole', 'Weight', 'Jvalue', 'J_Error', 'f',
                         'f_error', 'cycle_count', 'tuning_file', 'irr_enddatetime', 'irr_duration',
                          'irr_enddatetime_num']]
-        global intensities
         intensities = extract_intensities(conn, experiment_info)
         sensitivities = extracting_senstivities(conn, experiment_info)
         intensities = pd.merge(intensities, sensitivities,
                                how='left', on='serial_nr')
-        global all_blanks
-        all_blanks = extracting_all_blanks(conn)
-        global blank_data
-        blank_data = extracting_blanks(
-            conn, intensities[[
-                'acq_datetime']].min()[0], intensities[[
-                    'acq_datetime']].max()[0])
-        global subset_intensities
-        subset_intensities = intensities[[
-            'serial_nr', 'acq_datetime']].drop_duplicates()
-        blank_data = automatic_blank_assigment(blank_data, subset_intensities)
-        blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
-        global blank_intercept
-        blank_intercept = pd.read_sql(
-            f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
-        global blank_data1
-        blank_data1 = extract_blank_data(conn, blank_list)
-        global manual_intensities
-        manual_intensities = intensities
-        intensities = pd.merge(intensities, blank_data,
-                               how='left', on='serial_nr')
-        global blanks
-        blanks = blank_data1[['serial_nr', 'exp_nr', 'start', 'v36', 'v37', 'v38',
-                              'v39', 'v40']]
-        
-        header = Navbar()
+        blank_assignments_data = pd.read_sql(
+            f"SELECT serial_nr,blank_experiment_nr,blank_experiment_type FROM blank_assignments where exp_nr ={exp_nr}", software_conn)
+        blank_assignments_data['assignment'] = 'Manual'
+        if blank_assignments_data.empty:
+            blank_data = extracting_blanks(conn, intensities[['acq_datetime']].min()[
+                                           0], intensities[['acq_datetime']].max()[0])
+            subset_intensities = intensities[[
+                'serial_nr', 'acq_datetime']].drop_duplicates()
+            blank_data = automatic_blank_assigment(
+                blank_data, subset_intensities)
 
+            blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
+            blank_intercept = pd.read_sql(
+                f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
+            blank_intercept['blank_assignment'] = 'Automatic'
+        else:
+            blank_list = tuple(
+                blank_assignments_data['blank_experiment_no'].unique())+(0,)
+            blank_intercept['blank_assignment'] = 'Manual'
+
+        blank_data1 = extract_blank_data(conn, blank_list)
+        blank_info = blank_data1[['exp_nr', 'serial_nr', 'device', 'weight',
+                                  'inlet_file', 'tuning_file', 'd_inlet_file']].drop_duplicates()
+        blank_info = pd.merge(blank_info, blank_intercept,how='outer', on='exp_nr')
+        experiment_intercepts = pd.read_sql(
+            f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
+        assigned_blank_intensities = pd.merge(intensities[['serial_nr', 'device', 'weight', 'method_name']].drop_duplicates(), blank_data,
+                                              how='left', on='serial_nr')
+        intensities_intercepts = pd.merge(
+            assigned_blank_intensities, experiment_intercepts, how='left', on='serial_nr')
+        header = Navbar()
         layout = html.Div([
             header,
-            dcc.Tabs(id="tabs-example-graph", value='tab-1-example-graph', children=[
-                dcc.Tab(label='Blank Assignment', value='tab-1-example-graph'),
-                dcc.Tab(label='Blank Intercepts', value='tab-2-example-graph'),
+            dcc.Tabs(id="exp-example-graph", value='exp-1-example-graph', children=[
+                dcc.Tab(label='Experiment Assignment', value='exp-1-example-graph'),
+                dcc.Tab(label='Experiment Intercepts', value='exp-2-example-graph'),
             ]),
-            html.Div(id='tabs-content-example-graph')
+            html.Div(id='exp-content-example-graph')
         ])
         return layout
+    
+    exp_app.layout = exp_layout
 
-    blank_app.layout = update_layout
+    def render_exp_table():
+        return html.Div([html.Label("Experiments Details", 
+                            style=dict(fontWeight='bold')),
+                        dash_table.DataTable(
+                        id="exp_table",
+                        data=pd_exp.to_dict("records"),
+                        columns=[{"id": x, "name": x}
+                                 for x in pd_exp.columns],
+                        style_cell=dict(textAlign='left'),
+                        style_header=dict(fontWeight='bold'))]
+                        ,style={'display': 'inline-block'})
 
-    @blank_app.callback(Output('tabs-content-example-graph', 'children'),
-                        Input('tabs-example-graph', 'value'))
+    def render_blank_info_table():
+            return html.Div([html.Label("Blank Intercept Info", style=dict(fontWeight='bold')),
+                      dash_table.DataTable(
+                data=blank_info.to_dict("records"),
+                columns=[{"id": x, "name": x}
+                         for x in blank_info.columns],
+                page_current=0,
+                page_size=8,
+                page_action='native',
+                style_cell=dict(textAlign='left'),
+                style_header=dict(fontWeight='bold'),
+            )
+            ], style={'display': 'block'})
+
+    def render_intensities_info_table():
+        return html.Div([html.Label("Experiment Intercept Info", style=dict(fontWeight='bold')),
+                  dash_table.DataTable(
+            data=intensities_intercepts.to_dict("records"),
+            columns=[{"id": x, "name": x}
+                     for x in intensities_intercepts.columns],
+            page_current=0,
+            page_size=5,
+            page_action='native',
+            style_cell=dict(textAlign='left'),
+            style_header=dict(fontWeight='bold'),
+        )
+        ], style={'display': 'block'})
+
+    @exp_app.callback(Output('exp-content-example-graph', 'children'),
+                      Input('exp-example-graph', 'value'))
     def render_content(tab):
-        if tab == 'tab-1-example-graph':
-            return html.Div([
-                html.Div([html.Div([html.Label("Experiments Details", style=dict(fontWeight='bold')),
-                          dash_table.DataTable(
-                    id="exp_table",
-                    data=pd_exp.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in pd_exp.columns],
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
-                )], style={'display': 'inline-block'})], style={'display': 'flex', 'justifyContent': 'center', "padding-top": '10px', "padding-bottom": '20px'}),
-                # html.Div([html.Div([html.Label("Blanks Experiment list", style=dict(fontWeight='bold')),
-                #           dash_table.DataTable(
-                #     id="exp_table",
-                #     data=all_blanks.to_dict("rows"),
-                #     columns=[{"id": x, "name": x}
-                #              for x in all_blanks.columns],
-                #     page_current=0,
-                #     page_size=5,
-                #     page_action='native',
-                #     sort_action='native',
-                #                     filter_action='native',
-                #     style_cell=dict(textAlign='left'),
-                #     style_header=dict(fontWeight='bold'),
-                # )], style={'display': 'inline-block'})], style={'display': 'flex', 'justifyContent': 'center', "padding-top": '10px', "padding-bottom": '20px'}),
-                html.Div([
-                    dcc.RadioItems(
-                         ['Manual', 'Automatic'],
-                         'Manual',
-                         id='blank_selection_id',
-                         labelStyle={'display': 'inline-block', "padding-left": '25px', 'marginTop': '5px'})
-                ], style=dict(display='flex', justifyContent='left', padding_bottom='10px')),  # blanktable
+        if tab == 'exp-1-example-graph':
+            global pd_exp, blank_info, intensities_intercepts, intensities
+            exp_index = np.squeeze(np.array(pd.read_sql(
+                "SELECT exp_index  FROM experiments where exp_key='1'", software_conn)))
+            dashboard_arardb = pd.read_sql(
+                "SELECT exp_nr,material,proben_bez,project_name,sample_owner,irr_batch  FROM material order by exp_nr desc", conn)
+            dashboard_arardb["id"] = dashboard_arardb.index
+            global exp_nr
+            exp_nr = str(dashboard_arardb.iloc[exp_index][0])
+            experiment_info = extract_experiment_info(exp_nr, database)
+            experiment_info = extract_irradiation(conn, experiment_info)
+            pd_exp = pd.DataFrame.from_dict(experiment_info)
+            pd_exp = pd_exp[['Exp_No', 'Exp_type', 'Sample', 'Material', 'Project', 'Owner',
+                             'Irradiation', 'Plate', 'Hole', 'Weight', 'Jvalue', 'J_Error', 'f',
+                            'f_error', 'cycle_count', 'tuning_file', 'irr_enddatetime', 'irr_duration',
+                             'irr_enddatetime_num']]
+            intensities = extract_intensities(conn, experiment_info)
+            sensitivities = extracting_senstivities(conn, experiment_info)
+            intensities = pd.merge(intensities, sensitivities,
+                                   how='left', on='serial_nr')
+            blank_assignments_data = pd.read_sql(
+                f"SELECT serial_nr,blank_experiment_nr,blank_experiment_type FROM blank_assignments where exp_nr ={exp_nr}", software_conn)
+            blank_assignments_data['assignment'] = 'Manual'
+            if blank_assignments_data.empty:
+                blank_data = extracting_blanks(conn, intensities[['acq_datetime']].min()[
+                                               0], intensities[['acq_datetime']].max()[0])
+                subset_intensities = intensities[[
+                    'serial_nr', 'acq_datetime']].drop_duplicates()
+                blank_data = automatic_blank_assigment(
+                    blank_data, subset_intensities)
 
-                html.Div([html.Div(id='blanktable')]), ])
-        elif tab == 'tab-2-example-graph':
-            layout = html.Div([
+                blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
+                blank_intercept = pd.read_sql(
+                    f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
+                blank_intercept['blank_assignment'] = 'Automatic'
+            else:
+                blank_list = tuple(
+                    blank_assignments_data['blank_experiment_no'].unique())+(0,)
+                blank_intercept['blank_assignment'] = 'Manual'
+
+            blank_data1 = extract_blank_data(conn, blank_list)
+            blank_info = blank_data1[['exp_nr', 'serial_nr', 'device', 'weight',
+                                      'inlet_file', 'tuning_file', 'd_inlet_file']].drop_duplicates()
+            blank_info = pd.merge(blank_info, blank_intercept,how='left', on='exp_nr')
+            experiment_intercepts = pd.read_sql(
+                f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
+            assigned_blank_intensities = pd.merge(intensities[['serial_nr', 'device', 'weight', 'method_name']].drop_duplicates(), blank_data,
+                                                  how='left', on='serial_nr')
+            intensities_intercepts = pd.merge(
+            assigned_blank_intensities, experiment_intercepts, how='left', on='serial_nr')
+            exp_info = render_exp_table()
+            blank_info=render_blank_info_table()
+            intensities_info = render_intensities_info_table()
+            tab1_layout= html.Div(
+                [html.Div([exp_info],
+                style={'display': 'flex', 'justifyContent': 'center', "padding-top": '10px', "padding-bottom": '20px'}),
+                html.Div([blank_info],
+                         style={'display': 'flex', 'justifyContent': 'center', "padding-bottom": '20px'}),
+                html.Div([intensities_info],
+                         style={'display': 'flex', 'justifyContent': 'center', "padding-bottom": '20px'})
+                ])
+            return tab1_layout
+        else:
+            tab2_layout =  html.Div([
                 html.Div([
                     html.Div([
                         html.Table([
@@ -162,8 +245,8 @@ def blank_dashboard(server):
                                     'vertical-align': 'top',
                                     'width': '70%', "padding-left": '15px', "padding-bottom": '5px'}),
                     html.Div([dcc.Dropdown(
-                        blanks['exp_nr'].unique(),
-                        blanks['exp_nr'].unique()[0],
+                        intensities['serial_nr'].unique(),
+                        intensities['serial_nr'].unique()[0],
                         id='blank_experiment_selection'),
                     ], style={'width': '10%', 'vertical-align': 'top', 'display': 'inline-block', "padding-right": '10px'}),
                     html.Div([html.Button('Save Intercepts', id='save-val', n_clicks=0)], style={'display': 'inline-block',
@@ -172,8 +255,7 @@ def blank_dashboard(server):
                     dcc.ConfirmDialog(id='confirm-danger',
                                       message='Are you sure you want to save?',
                                       ),
-                    html.Div(id='container-button-basic',
-                             children='Enter a value and press submit')
+                    html.Div(id='container-button-basic')
                 ],
                 ),
                 html.Div([
@@ -291,218 +373,18 @@ def blank_dashboard(server):
                 ], style={'display': 'block'}),
                 dcc.Store(id='intermediate-value')
             ], style={'width': '100%', 'display': 'inline-block'})
-            return layout
-
-    @blank_app.callback(Output('blanktable', 'children'),
-                        Input('blank_selection_id', 'value'))
-    def blank_assignment(value):
-        if value == 'Automatic':
-            global intensities
-            intensities = extract_intensities(conn, experiment_info)
-            sensitivities = extracting_senstivities(conn, experiment_info)
-            intensities = pd.merge(intensities, sensitivities,
-                                   how='left', on='serial_nr')
-            global all_blanks
-            all_blanks = extracting_all_blanks(conn)
-            global blank_data
-            blank_data = extracting_blanks(
-                conn, intensities[[
-                    'acq_datetime']].min()[0], intensities[[
-                        'acq_datetime']].max()[0])
-
-            subset_intensities = intensities[[
-                'serial_nr', 'acq_datetime']].drop_duplicates()
-            global blanks
-            blank_data = automatic_blank_assigment(
-                blank_data, subset_intensities)
-            blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
-            global blank_intercept
-            blank_intercept = pd.read_sql(
-                f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
-            global blank_data1
-            blank_data1 = extract_blank_data(conn, blank_list)
-            global manual_intensities
-            manual_intensities = intensities
-            intensities = pd.merge(intensities, blank_data,
-                                   how='left', on='serial_nr')
-            global blanks
-            blanks = blank_data1[['serial_nr', 'exp_nr', 'start', 'v36', 'v37', 'v38',
-                                  'v39', 'v40']]
-            #print(blanks)
-            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file", 'method_name', 'd_method_name',
-                                      'd_inlet_file']].drop_duplicates()
-            blank_layout = html.Div([html.Div([html.Div([
-                html.Label("Blank experiments Information table",
-                           style=dict(fontWeight='bold')),
-                dash_table.DataTable(
-                    data=blank_info.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in blank_info.columns],
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
-                )], style={
-                    'width': '70%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'}),
-                html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold')),
-                          dash_table.DataTable(
-                    data=blank_intercept.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in blank_intercept.columns],
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
-
-                )
-                ], style={
-                    'width': '30%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
-            )], style={
-                'width': '100%', 'display': 'flex', 'justifyContent': 'center', "padding-bottom": '10px'}),
-                html.Div(
-                html.Div([html.Label("Blank Assignment table", style=dict(fontWeight='bold')),
-                          dash_table.DataTable(
-                    data=blank_data.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in blank_data.columns],
-                    page_current=0,
-                    page_size=8,
-                    page_action='native',
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
-                )
-
-                ], style={'display': 'block'}), style={
-                    'display': 'flex', 'justifyContent': 'center'})])
-            return blank_layout
-        else:
-            blank_layout = html.Div([html.Div([html.Div([html.Label("Blank experiments list", style=dict(fontWeight='bold')),
-                                               dash_table.DataTable(
-                id="all_blank_table",
-                data=all_blanks.to_dict("records"),
-                columns=[{"name": i, "id": i}
-                         for i in all_blanks.columns if i != "id"],
-                sort_action='native',
-                filter_action='native',
-                row_selectable="multiple",
-                page_current=0,
-                page_size=5,
-                page_action='native',
-                style_cell=dict(textAlign='left'),
-                style_header=dict(fontWeight='bold'),
-            )
-
-            ], style={'display': 'block'})], style={
-                'display': 'flex', 'justifyContent': 'center'}), html.Div([html.Div(id='blankassign_table')])])
-
-            return blank_layout
-
-    @blank_app.callback(Output('blankassign_table', 'children'),
-                        Input("all_blank_table", "selected_rows"))
-    def blank_exp_assigment(row):
-        blank_exp=[]
-        blank_type=[]
-        global blank_data
-        if row is not None:
-            for i in row:
-                blank_exp.append(all_blanks.iloc[i][0])
-                blank_type.append(all_blanks.iloc[i][1])
             
-            blank_data_db = pd.read_sql(
-                f"SELECT serial_nr,serial_acq_datetime,blank_experiment_nr as blank_experiment_no,blank_experiment_type  FROM blank_assignments where exp_nr = {exp_nr}", software_conn)
-            
-            if len(row)==1 and blank_data_db.empty:
-                blank_data['blank_experiment_no'] = blank_exp[0]
-                blank_data['blank_experiment_type'] = blank_type[0]
-            else:
-                blank_data['blank_experiment_no'] = 0
-                blank_data['blank_experiment_type'] = '-'
-            
-            blank_data = pd.merge(
-                blank_data, subset_intensities[['serial_nr', 'acq_datetime']], on='serial_nr')
-            blank_data=blank_data.iloc[:,0:4]
-            blank_data.columns.values[3] = "serial_acq_datetime"
-            if not blank_data_db.empty:
-                blank_data = blank_data_db.copy()
-                blank_exp=list(blank_exp)+list(blank_data['blank_experiment_no'].unique())
-                
-            #blank_data['acq_datetime'] = blank_time
-            blank_list = tuple(blank_exp)+(0,)
-            global blank_intercept
-            blank_intercept = pd.read_sql(
-                f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
-            blank_data1 = extract_blank_data(conn, blank_list)
-            global intensities
-            intensities = pd.merge(manual_intensities, blank_data,
-                                   how='left', on='serial_nr')
-            global blanks
-            blanks = blank_data1[['serial_nr', 'exp_nr', 'start', 'v36', 'v37', 'v38',
-                                  'v39', 'v40']]
-            print(blanks)
-            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file", 'method_name', 'd_method_name',
-                                      'd_inlet_file']].drop_duplicates()
-            blank_layout = html.Div([html.Div([html.Div([
-                html.Label("Blank experiments Information table",
-                           style=dict(fontWeight='bold')),
-                dash_table.DataTable(
-                    data=blank_info.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in blank_info.columns],
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
-                )], style={
-                    'width': '70%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'}),
-                html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold')),
-                          dash_table.DataTable(
-                    data=blank_intercept.to_dict("records"),
-                    columns=[{"id": x, "name": x}
-                             for x in blank_intercept.columns],
-                    style_cell=dict(textAlign='left'),
-                    style_header=dict(fontWeight='bold'),
+            return tab2_layout
 
-                )
-                ], style={
-                    'width': '30%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
-            )], style={
-                'width': '100%', 'display': 'flex', 'justifyContent': 'center', "padding-bottom": '10px'}),
-                html.Div(
-                html.Div([html.Label("Blank Assignment table", style=dict(fontWeight='bold')),
-                         html.Div(dash_table.DataTable(
-                             id='editable_blank_table',
-                             data=blank_data.to_dict("records"),
-                             columns=[{"id": x, "name": x,"presentation":'dropdown'}
-                                      for x in blank_data.columns],
-                             editable=True,
-                             css=[ {"selector": ".Select-menu-outer", "rule": 'display : block !important'} ],
-                             dropdown={
-                                 'blank_experiment_no': {
-                         'options': [
-                    {'label': i, 'value': i}
-                             for i in blank_exp
-                ]
-            }},
-                             page_current=0,
-                             page_size=5,
-                             page_action='native',
-                             style_cell=dict(textAlign='left'),
-                             style_header=dict(fontWeight='bold'),
-                         ))
-
-                ], style={'display ': 'block !important'}), style={
-                    'display': 'flex', 'justifyContent': 'center'}),
-                html.Div([html.Div([html.Button('Save Blank Assigments', id='save-intercept', n_clicks=0)], style={'display': 'flex', 'justifyContent': 'center',
-                                                                                                         'vertical-align': 'top',
-                                                                                                                   'width': '5%', "padding-right": '10px'})], style={'display': 'flex', 'justifyContent': 'center'}),
-                dcc.ConfirmDialog(id='confirmdanger1',
-                                  message='Do you want to save the blank assignments?',
-                                  ), html.Div(id='container-button-basic1')])
-            return blank_layout
-
-    @blank_app.callback(
-        Output('figure_A36', 'figure'),
-        Output('intercept_A36', 'children'),
-        Output('loss_A36', 'children'),
-        Input('blank_experiment_selection', 'value'),
-        Input('quantile_slider_A36', 'value'),
-        Input('regression_model_A36', 'value'))
+    @exp_app.callback(
+            Output('figure_A36', 'figure'),
+            Output('intercept_A36', 'children'),
+            Output('loss_A36', 'children'),
+            Input('blank_experiment_selection', 'value'),
+            Input('quantile_slider_A36', 'value'),
+            Input('regression_model_A36', 'value'))
     def updated_Ar36(exp_no, quantile_range, regression_model):
-        Ar_blank = blanks[blanks['exp_nr'] == exp_no]
+        Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v36']
         low_percentile = quantile_range[0]/100
@@ -531,7 +413,7 @@ def blank_dashboard(server):
                 np.array(x).reshape(-1, 1))
             X_TRANSF = polynomial_features.fit_transform(
                 np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0,:]])
+            intercept = model.predict([x_all[0, :]])
             Y_pred = model.predict(X_TRANSF)
             loss = mean_squared_error(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(x_all))
@@ -578,7 +460,7 @@ def blank_dashboard(server):
             return figure, 0, 0
         return figure, np.squeeze(intercept), loss
 
-    @blank_app.callback(
+    @exp_app.callback(
         Output('figure_A37', 'figure'),
         Output('intercept_A37', 'children'),
         Output('loss_A37', 'children'),
@@ -586,7 +468,7 @@ def blank_dashboard(server):
         Input('quantile_slider_A37', 'value'),
         Input('regression_model_A37', 'value'))
     def updated_A37(exp_no, quantile_range, regression_model):
-        Ar_blank = blanks[blanks['exp_nr'] == exp_no]
+        Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v37']
         low_percentile = quantile_range[0]/100
@@ -663,7 +545,7 @@ def blank_dashboard(server):
             return figure, 0, 0
         return figure, np.squeeze(intercept), loss
 
-    @blank_app.callback(
+    @exp_app.callback(
         Output('figure_A38', 'figure'),
         Output('intercept_A38', 'children'),
         Output('loss_A38', 'children'),
@@ -671,7 +553,7 @@ def blank_dashboard(server):
         Input('quantile_slider_A38', 'value'),
         Input('regression_model_A38', 'value'))
     def updated_A38(exp_no, quantile_range, regression_model):
-        Ar_blank = blanks[blanks['exp_nr'] == exp_no]
+        Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v38']
         low_percentile = quantile_range[0]/100
@@ -746,7 +628,7 @@ def blank_dashboard(server):
             return figure, 0, 0
         return figure, np.squeeze(intercept), loss
 
-    @blank_app.callback(
+    @exp_app.callback(
         Output('figure_A39', 'figure'),
         Output('intercept_A39', 'children'),
         Output('loss_A39', 'children'),
@@ -754,7 +636,7 @@ def blank_dashboard(server):
         Input('quantile_slider_A39', 'value'),
         Input('regression_model_A39', 'value'))
     def updated_A39(exp_no, quantile_range, regression_model):
-        Ar_blank = blanks[blanks['exp_nr'] == exp_no]
+        Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v39']
         low_percentile = quantile_range[0]/100
@@ -829,7 +711,7 @@ def blank_dashboard(server):
             return figure, 0, 0
         return figure, np.squeeze(intercept), loss
 
-    @blank_app.callback(
+    @exp_app.callback(
         Output('figure_A40', 'figure'),
         Output('intercept_A40', 'children'),
         Output('loss_A40', 'children'),
@@ -837,7 +719,7 @@ def blank_dashboard(server):
         Input('quantile_slider_A40', 'value'),
         Input('regression_model_A40', 'value'))
     def updated_A40(exp_no, quantile_range, regression_model):
-        Ar_blank = blanks[blanks['exp_nr'] == exp_no]
+        Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v40']
         low_percentile = quantile_range[0]/100
@@ -912,57 +794,21 @@ def blank_dashboard(server):
             return figure, 0, 0
         return figure, np.squeeze(intercept), loss
 
-    @blank_app.callback(Output('confirmdanger1', 'displayed'),
-                        Input('save-intercept', 'n_clicks'))
-    def display_confirm_assigments(n):
-        if n is not None and n >= 1:
-            return True
-        return False
-
-    def update_blank_assigments(table):
-        cursor = software_conn.cursor()
-# Insert Dataframe into SQL Server:
-        for index, row in table.iterrows():
-            cursor.execute(
-                f"INSERT INTO blank_assignments (exp_nr, serial_nr,serial_acq_datetime,blank_experiment_nr,blank_experiment_type) VALUES('{row.exp_nr}', '{row.serial_nr}', '{row.serial_acq_datetime}', '{row.blank_experiment_nr}', '{row.blank_experiment_type}') ON DUPLICATE KEY UPDATE blank_experiment_nr = '{row.blank_experiment_nr}', blank_experiment_type ='{row.blank_experiment_type}'")
-        software_conn.commit()
-        pass
-
-    @blank_app.callback(
-        Output('container-button-basic1', 'children'),
-        Output('confirmdanger1', 'submit_n_clicks'),
-        Input('confirmdanger1', 'submit_n_clicks'),
-        Input('editable_blank_table', 'data'),
-        Input('editable_blank_table', 'columns')
-    )
-    def save_blank_assigments(n,rows,columns):
-        assigned_blanks = pd.DataFrame(rows, columns=[c['name'] for c in columns])
-        final_blanks = pd.merge(assigned_blanks[['serial_nr', 'blank_experiment_no', 'serial_acq_datetime']], all_blanks[[
-                                'exp_nr', 'exp_type']], left_on='blank_experiment_no', right_on='exp_nr')
-        final_blanks['exp_nr']=exp_nr
-        if n is not None and n >= 1:
-            final_blanks = final_blanks[[
-                'exp_nr', 'serial_nr', 'serial_acq_datetime', 'blank_experiment_no', 'exp_type']]
-            final_blanks.columns.values[3] = "blank_experiment_nr"
-            final_blanks.columns.values[4] = "blank_experiment_type"
-            update_blank_assigments(final_blanks)
-        return 0, 0
-
-    @blank_app.callback(Output('confirm-danger', 'displayed'),
+    @exp_app.callback(Output('confirm-danger', 'displayed'),
                         Input('save-val', 'n_clicks'))
     def display_confirm(n):
         if n >= 1:
             return True
         return False
 
-    def update_blank_intercepts(exp, A36, A37, A38, A39, A40):
+    def update_blank_intercepts(serial_nr, A36, A37, A38, A39, A40):
         cur = software_conn.cursor()
         cur.execute(
-            f"INSERT INTO blank_intercepts (exp_nr, Ar36_intercept, Ar37_intercept, Ar38_intercept, Ar39_intercept, Ar40_intercept) VALUES('{exp}', '{A36}', '{A37}', '{A38}', '{A39}', '{A40}') ON DUPLICATE KEY UPDATE Ar36_intercept = '{A36}', Ar37_intercept ='{A37}', Ar38_intercept ='{A38}', Ar39_intercept= '{A39}', Ar40_intercept ='{A40}'")
+            f"INSERT INTO experiment_intercepts (exp_nr,serial_nr, Ar36_intercept, Ar37_intercept, Ar38_intercept, Ar39_intercept, Ar40_intercept) VALUES('{exp_nr}','{serial_nr}', '{A36}', '{A37}', '{A38}', '{A39}', '{A40}') ON DUPLICATE KEY UPDATE Ar36_intercept = '{A36}', Ar37_intercept ='{A37}', Ar38_intercept ='{A38}', Ar39_intercept= '{A39}', Ar40_intercept ='{A40}'")
         software_conn.commit()
         pass
 
-    @blank_app.callback(
+    @exp_app.callback(
         Output('container-button-basic', 'children'),
         Output('confirm-danger', 'submit_n_clicks'),
         Input('confirm-danger', 'submit_n_clicks'),
@@ -973,12 +819,11 @@ def blank_dashboard(server):
         Input('intercept_A39', 'children'),
         Input('intercept_A40', 'children')
     )
-    def save_intercepts(n, exp, A36, A37, A38, A39, A40):
+    def save_intercepts(n, serial_nr, A36, A37, A38, A39, A40):
         if n is not None and n >= 1:
-            update_blank_intercepts(exp, np.squeeze(A36), np.squeeze(
+            update_blank_intercepts(serial_nr, np.squeeze(A36), np.squeeze(
                 A37), np.squeeze(A38), np.squeeze(A39), np.squeeze(A40))
         return 0, 0
-    return blank_app
-
+    return exp_app
 # if __name__ == '__main__':
 #     app.run_server(debug=True)

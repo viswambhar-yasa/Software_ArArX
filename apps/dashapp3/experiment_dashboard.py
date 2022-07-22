@@ -97,6 +97,7 @@ def experiment_dashboard(server):
         blank_data1 = extract_blank_data(conn, blank_list)
         blank_info = blank_data1[['exp_nr', 'serial_nr', 'device', 'weight',
                                   'inlet_file', 'tuning_file', 'd_inlet_file']].drop_duplicates()
+        
         blank_info = pd.merge(blank_info, blank_intercept,how='outer', on='exp_nr')
         experiment_intercepts = pd.read_sql(
             f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
@@ -203,6 +204,7 @@ def experiment_dashboard(server):
             blank_data1 = extract_blank_data(conn, blank_list)
             blank_info = blank_data1[['exp_nr', 'serial_nr', 'device', 'weight',
                                       'inlet_file', 'tuning_file', 'd_inlet_file']].drop_duplicates()
+            
             blank_info = pd.merge(blank_info, blank_intercept,how='left', on='exp_nr')
             experiment_intercepts = pd.read_sql(
                 f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)

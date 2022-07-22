@@ -189,7 +189,7 @@ def blank_dashboard(server):
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A36',
-                                        value=[10, 90],
+                                        value=[0, 100],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
@@ -211,7 +211,7 @@ def blank_dashboard(server):
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A37',
-                                        value=[10, 90],
+                                        value=[0, 100],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
@@ -233,7 +233,7 @@ def blank_dashboard(server):
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A38',
-                                        value=[10, 90],
+                                        value=[0, 100],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
@@ -257,7 +257,7 @@ def blank_dashboard(server):
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A39',
-                                        value=[10, 90],
+                                        value=[0, 100],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
@@ -280,7 +280,7 @@ def blank_dashboard(server):
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A40',
-                                        value=[5, 95],
+                                        value=[0, 100],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
@@ -329,11 +329,12 @@ def blank_dashboard(server):
             blanks = blank_data1[['serial_nr', 'exp_nr', 'start', 'v36', 'v37', 'v38',
                                   'v39', 'v40']]
             #print(blanks)
-            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file", 'method_name', 'd_method_name',
-                                      'd_inlet_file']].drop_duplicates()
+            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file",'d_inlet_file', 'method_name', 'd_method_name',
+                                      ]].drop_duplicates()
+            blank_info = blank_info.rename(columns={"d_inlet_file": "inlet_time", "d_method_name": "method_time"})
             blank_layout = html.Div([html.Div([html.Div([
                 html.Label("Blank experiments Information table",
-                           style=dict(fontWeight='bold')),
+                           style=dict(fontWeight='bold',display='inline-block')),
                 dash_table.DataTable(
                     data=blank_info.to_dict("records"),
                     columns=[{"id": x, "name": x}
@@ -341,8 +342,11 @@ def blank_dashboard(server):
                     style_cell=dict(textAlign='left'),
                     style_header=dict(fontWeight='bold'),
                 )], style={
-                    'width': '70%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'}),
-                html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold')),
+                    'width': '75%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'})],
+                    style={
+                'display': 'flex', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px', "padding-bottom": '10px'}
+            ),
+                html.Div([html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold', display='inline-block')),
                           dash_table.DataTable(
                     data=blank_intercept.to_dict("records"),
                     columns=[{"id": x, "name": x}
@@ -352,9 +356,10 @@ def blank_dashboard(server):
 
                 )
                 ], style={
-                    'width': '30%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
-            )], style={
-                'width': '100%', 'display': 'flex', 'justifyContent': 'center', "padding-bottom": '10px'}),
+                    'width': '50%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
+            )],style={
+                    'display': 'flex', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px', "padding-bottom": '20px'}
+            ),
                 html.Div(
                 html.Div([html.Label("Blank Assignment table", style=dict(fontWeight='bold')),
                           dash_table.DataTable(
@@ -435,11 +440,13 @@ def blank_dashboard(server):
             blanks = blank_data1[['serial_nr', 'exp_nr', 'start', 'v36', 'v37', 'v38',
                                   'v39', 'v40']]
             print(blanks)
-            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file", 'method_name', 'd_method_name',
-                                      'd_inlet_file']].drop_duplicates()
+            blank_info = blank_data1[["exp_nr", "serial_nr", "device", "acq_datetime", "inlet_file",'d_inlet_file', 'method_name', 'd_method_name',
+                                      ]].drop_duplicates()
+            blank_info = blank_info.rename(
+                columns={"d_inlet_file": "inlet_time", "d_method_name": "method_time"})
             blank_layout = html.Div([html.Div([html.Div([
                 html.Label("Blank experiments Information table",
-                           style=dict(fontWeight='bold')),
+                           style=dict(fontWeight='bold', display='inline-block')),
                 dash_table.DataTable(
                     data=blank_info.to_dict("records"),
                     columns=[{"id": x, "name": x}
@@ -447,8 +454,11 @@ def blank_dashboard(server):
                     style_cell=dict(textAlign='left'),
                     style_header=dict(fontWeight='bold'),
                 )], style={
-                    'width': '70%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'}),
-                html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold')),
+                    'width': '75%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '15px', "padding-top": '10px'})],
+                style={
+                'display': 'flex', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px', "padding-bottom": '10px'}
+            ),
+                html.Div([html.Div([html.Label("Blank Intercepts table", style=dict(fontWeight='bold', display='inline-block')),
                           dash_table.DataTable(
                     data=blank_intercept.to_dict("records"),
                     columns=[{"id": x, "name": x}
@@ -458,9 +468,10 @@ def blank_dashboard(server):
 
                 )
                 ], style={
-                    'width': '30%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
-            )], style={
-                'width': '100%', 'display': 'flex', 'justifyContent': 'center', "padding-bottom": '10px'}),
+                    'width': '50%', 'display': 'inline-block', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px'}
+                )], style={
+                    'display': 'flex', 'justifyContent': 'center', "padding-left": '5px', "padding-right": '15px', "padding-top": '10px', "padding-bottom": '20px'}
+            ),
                 html.Div(
                 html.Div([html.Label("Blank Assignment table", style=dict(fontWeight='bold')),
                          html.Div(dash_table.DataTable(
@@ -521,7 +532,7 @@ def blank_dashboard(server):
         if regression_model == 'Linear':
             intercept = model.predict([[np.array(x)[0]]])
             Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
+            loss = r2_score(Y_pred, np.array(Y_quan))
             line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
             data.append(go.Scatter(x=x.to_list(), y=line_model,
                         name=regression_model+' regression'))

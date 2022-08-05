@@ -10,6 +10,7 @@ from sklearn.svm import SVR, LinearSVC
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import r2_score,mean_squared_error
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet, BayesianRidge
+import plotly.graph_objects as go
 username = 'root'
 password = 'dbpwx61'
 database = 'arardb'
@@ -219,3 +220,222 @@ def check_steps(intensities_data, parameters):
             for index, value in enumerate(step_diff[j]):
                 if value > offset:
                     offset = [offset, index]
+
+
+
+
+class Regression:
+    def __init__(self, x, y, quantile_range,option, regression_model) -> None:
+        self.x_o=x
+        self.y_o=y
+        low_percentile = quantile_range[0]/100
+        high_percentile = quantile_range[1]/100
+        self.q_low = np.quantile(np.array(y),low_percentile)
+        self.q_hi = np.quantile(np.array(y), high_percentile) 
+        X = x[(y <= self.q_hi) & (y >= self.q_low)]
+        Y = y[(y <= self.q_hi) & (y >= self.q_low)]
+        if x.ndim==1:
+            self.x=X.reshape(-1,1)
+        self.N,self.P=self.x.shape
+        self.y=Y
+        self.model_type=regression_model
+        self.distance_option = option
+        
+        self.x_mean=np.mean(self.x)
+        self.y_mean=np.mean(self.y)
+        loss = np.inf
+        if self.model_type=='Automatic':
+            for i in ['Linear', 'Quadratic', 'ElasticNet', 'Bayesian']:
+                automodel=None
+                if i== 'Quadratic':
+                    poly = PolynomialFeatures(degree=2, include_bias=False).fit(self.x)
+                    self.x_poly = poly.transform(self.x)
+                    automodel = LinearRegression().fit(self.x_poly, self.y)
+                    Y_pred = automodel.predict(self.x_poly)
+                elif i == 'Linear':
+                    automodel = LinearRegression().fit(self.x, self.y)
+                    Y_pred = automodel.predict(self.x)
+                elif i == 'Exponential':
+                    automodel = LinearRegression().fit(np.log(self.x), np.log(self.y))
+                    Y_pred = automodel.predict(self.x)
+                elif i == 'ElasticNet':
+                    automodel = ElasticNet().fit(self.x, self.y)
+                    Y_pred = automodel.predict(self.x)
+                elif i == 'Bayesian':
+                    automodel = BayesianRidge().fit(self.x, self.y)
+                    Y_pred = automodel.predict(self.x)
+                cal_loss = mean_squared_error(Y_pred, self.y)
+                if cal_loss < loss:
+                    self.model = automodel
+                    self.model_type=i
+                    loss = cal_loss
+        elif self.model_type=='Quadratic':
+            poly=PolynomialFeatures(degree=2,include_bias=False).fit(self.x)
+            self.x_poly=poly.transform(self.x)
+            self.model = LinearRegression().fit(self.x_poly, self.y)
+        elif self.model_type == 'Linear':
+            self.model = LinearRegression().fit(self.x, self.y)
+        elif self.model_type == 'Exponential':
+            self.model = LinearRegression().fit(np.log(self.x), np.log(self.y))
+        elif self.model_type == 'ElasticNet':
+            self.model=ElasticNet().fit(self.x,self.y)
+        elif self.model_type == 'Bayesian':
+            self.model = BayesianRidge().fit(self.x, self.y)
+        self.model_parameters=np.append(np.squeeze(self.model.coef_),self.model.intercept_)  
+        self.standard_errors()
+        self.ss_xx = np.sum(np.square(self.x-self.x_mean))
+        self.ss_yy = np.sum(np.square(self.y-self.y_mean))
+        self.h = (1/len(x))+(np.square(self.x-self.x_mean)/self.ss_xx)
+        pass
+
+    def standard_errors(self):
+        if self.model_type == 'Quadratic':
+            self.y_pred = self.model.predict(self.x_poly)
+            self.x_w_intercepts = PolynomialFeatures(
+                degree=2).fit_transform(self.x)
+        else:
+            self.y_pred = self.model.predict(self.x)
+            self.x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x)
+        self.residual = self.y-self.y_pred
+        self.sum_of_squares = np.sum(
+            (self.residual) ** 2)/(self.N-(self.P-1)-1)
+        sd_alpha = np.sqrt(self.sum_of_squares *
+                           (np.diag(np.linalg.pinv(np.dot(self.x_w_intercepts.T, self.x_w_intercepts)))))
+        self.model_standard_errors = np.sqrt(sd_alpha)
+        pass
+
+    def cooks_distance(self):
+        tol=1e-8
+        self.SS_tot = np.sum((self.y - self.y_mean)**2)
+        self.SS_res = np.sum((self.y - self.y_pred)**2)
+        self.SS_exp = np.sum((self.y_pred - self.y_mean)**2)
+        #Estimators of the variances
+        self.Sn_2 = (1/(self.N-(self.P-1)-1)) * self.SS_res
+        self.S_A = self.Sn_2 * ((1 / (self.N-(self.P-1)-1)) + self.x_mean**2 / self.ss_xx)
+        self.S_B = self.Sn_2 / self.ss_xx
+        self.R_squared = self.SS_exp / self.SS_tot
+        if any(self.model_standard_errors>tol):
+            self.cook_distance = (self.residual**2 / (2*self.Sn_2)
+                              ) * (self.h.T / (1 - self.h.T)**2)
+        else:
+            self.cook_distance=None
+        pass
+    
+    def outlier_detection(self):
+        self.cooks_distance()
+        if self.cook_distance is not None and self.distance_option!=0:
+            if self.distance_option == 1:
+                self.x_trim = self.x[self.cook_distance.T<1]
+                self.y_trim = self.y[np.squeeze(self.cook_distance)<1]
+                self.x_outliers = self.x[self.cook_distance.T > 1]
+                self.y_outliers = self.y[np.squeeze(self.cook_distance) > 1]
+            elif self.distance_option == 2:
+                self.x_trim = self.x[self.cook_distance.T < 4/(self.N-(self.P-1)-1)]
+                self.y_trim = self.y[np.squeeze(
+                    self.cook_distance) < 4/(self.N-(self.P-1)-1)]
+                self.x_outliers = self.x[self.cook_distance.T >
+                                         4/(self.N-(self.P-1)-1)]
+                self.y_outliers = self.y[np.squeeze(
+                    self.cook_distance) > 4/(self.N-(self.P-1)-1)]
+            elif self.distance_option == 3:
+                self.x_trim = self.x[self.cook_distance.T <
+                                     3/(self.x_mean)]
+                self.y_trim = self.y[np.squeeze(
+                    self.cook_distance) < 3/(self.x_mean)]
+                self.x_outliers = self.x[self.cook_distance.T >
+                                         3/(self.x_mean)]
+                self.y_outliers = self.y[np.squeeze(
+                    self.cook_distance) > 3/(self.x_mean)]
+        else:
+            self.x_trim = []
+            self.y_trim = []
+            self.x_outliers = []
+            self.y_outliers = []
+            print(self.x_trim)
+        pass 
+    def optimized_regression_model(self):
+        self.outlier_detection()
+        optmodel=None
+        if self.cook_distance is not None and self.distance_option!=0:
+            if self.x_trim.ndim==1:
+                self.x_trim = self.x_trim.reshape(1,-1).T
+            N, P = self.x_trim.shape
+            if self.model_type == 'Quadratic':
+                poly = PolynomialFeatures(
+                    degree=2, include_bias=False).fit(self.x_trim)
+                x_poly = poly.transform(self.x_trim)
+                optmodel = LinearRegression().fit(x_poly, self.y_trim)
+            elif self.model_type == 'Linear':
+                optmodel = LinearRegression().fit(self.x_trim, self.y_trim)
+            elif self.model_type == 'Exponential':
+                optmodel = LinearRegression().fit(np.log(self.x_trim), np.log(self.y_trim))
+            elif self.model_type == 'ElasticNet':
+                optmodel = ElasticNet().fit(self.x_trim, self.y_trim)
+            elif self.model_type == 'Bayesian':
+                optmodel = BayesianRidge().fit(self.x_trim, self.y_trim)
+            self.opt_model_parameters = np.append(np.squeeze(optmodel.coef_), optmodel.intercept_)
+            self.optimized_model = optmodel
+            if self.model_type == 'Quadratic':
+                y_pred = self.optimized_model.predict(x_poly)
+                x_w_intercepts = PolynomialFeatures(degree=2).fit_transform(self.x_trim)
+            else:
+                y_pred = self.optimized_model.predict(self.x_trim)
+                x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x_trim)
+            residual = self.y_trim-y_pred
+            sum_of_squares = np.sum(
+                (residual) ** 2)/(N-(P-1)-1)
+            sd_alpha = np.sqrt(sum_of_squares *
+                               (np.diag(np.linalg.pinv(np.dot(x_w_intercepts.T, x_w_intercepts)))))
+            self.opt_model_standard_errors = np.sqrt(sd_alpha)
+        else:
+            self.optimized_model=self.model
+            self.opt_model_parameters=self.model_parameters
+            self.opt_model_standard_errors = self.model_standard_errors
+        pass
+
+    def plot(self):
+        self.optimized_regression_model()
+        inp = self.x_o.reshape(-1, 1)
+        if self.model_type=='Quadratic':
+            poly = PolynomialFeatures(degree=2, include_bias=False).fit(inp)
+            x_poly = poly.transform(inp)
+            y_un_pred = np.squeeze(self.model.predict(x_poly))
+            y_op_pred = np.squeeze(self.optimized_model.predict(x_poly))
+        else:
+            y_un_pred = np.squeeze(self.model.predict(inp))
+            y_op_pred = np.squeeze(self.optimized_model.predict(inp))
+        if self.distance_option!=0:
+            self.plotdata = [go.Scatter(x=np.squeeze(self.x).T,
+                                        y=self.y, mode='markers', name='not Outliers', marker=dict(size=8, color='Blue',
+                                                                                                           line=dict(width=1,
+                                                                                                                     color='Grey'))),
+                             go.Scatter(x=self.x_o[(self.y_o > self.q_hi)],
+                                        y=self.y_o[(self.y_o > self.q_hi)], mode='markers', name='Upper Outliers', marker=dict(size=8, color='Red',
+                                                                                                                                       line=dict(width=1,
+                                                                                                                                                 color='Grey'), opacity=0.75)),
+                             go.Scatter(x=self.x_o[(self.y_o < self.q_low)],
+                                        y=self.y_o[(self.y_o < self.q_low)], mode='markers', name='Lower Outliers', marker=dict(size=8, color='Green',
+                                                                                                                                        line=dict(width=1,
+                                                                                                                                                  color='Grey'), opacity=0.75)),
+                             go.Scatter(x=self.x_o, y=y_un_pred,
+                                        name=self.model_type+' actual regression', line=dict(width=2, color='mediumblue', dash='dash')),
+                             go.Scatter(x=self.x_outliers, y=self.y_outliers,
+                                        mode='markers', name='Outlier', marker=dict(size=8, color='purple')),
+                             go.Scatter(x=self.x_o, y=y_op_pred,
+                             name=self.model_type+' optimized regression', line=dict(width=3, dash='solid', color='darkgoldenrod'))]
+        else:
+            self.plotdata = [go.Scatter(x=np.squeeze(self.x).T,
+                                        y=self.y, mode='markers', name='not Outliers', marker=dict(size=8, color='Blue',
+                                                                                                           line=dict(width=1,
+                                                                                                                     color='DarkSlateGrey'))),
+                             go.Scatter(x=self.x_o[(self.y_o > self.q_hi)],
+                                        y=self.y_o[(self.y_o > self.q_hi)], mode='markers', name='Upper Outliers', marker=dict(size=8, color='Red',
+                                                                                                                                       line=dict(width=1,
+                                                                                                                                                 color='DarkSlateGrey'), opacity=0.75)),
+                             go.Scatter(x=self.x_o[(self.y_o < self.q_low)],
+                                        y=self.y_o[(self.y_o < self.q_low)], mode='markers', name='Lower Outliers', marker=dict(size=8, color='Green',
+                                                                                                                                        line=dict(width=1,
+                                                                                                                                                  color='DarkSlateGrey'), opacity=0.75)),
+                             go.Scatter(x=self.x_o, y=y_un_pred,
+                                        name=self.model_type+' actual regression', line=dict(width=2, color='darkgoldenrod', dash='solid')),
+                             ]

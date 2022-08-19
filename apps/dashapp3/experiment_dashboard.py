@@ -6,37 +6,14 @@ from apps.dash_navbar.navigation_bar import Navbar
 import pandas as pd
 import json
 import numpy as np
+from sqlalchemy import create_engine
+
 
 # blank_intercept=[ ]
 
 
 def experiment_dashboard(server):
-    with open(r'.\apps\private_data\account_details.json', 'r') as f:
-        try:
-            account_details = json.load(f)
-        except:
-            account_details = account_details = {"username": 'root',
-                                                 "database": 'arardb',
-                                                 "password": 'dbpwx61'}
-    f.close()
-    username = account_details['username']
-    password = account_details['password']
-    database = account_details['database']
-    global conn
-    conn = mariadb.connect(
-        user=username,
-        password=password,
-        host="139.20.22.156",
-        port=3306,
-        database=database)
 
-    global software_conn
-    software_conn = mariadb.connect(
-            user=username,
-            password=password,
-            host="139.20.22.156",
-            port=3306,
-            database="ararsoftware")
 
     external_stylesheets = [
         'https://codepen.io/chriddyp/pen/bWLwgP.css', dbc.themes.BOOTSTRAP]
@@ -49,12 +26,13 @@ def experiment_dashboard(server):
     
     def exp_layout():
         global software_conn
-        software_conn = mariadb.connect(
-            user=username,
-            password=password,
-            host="139.20.22.156",
-            port=3306,
-            database="ararsoftware")
+        softurl = r"mariadb+mariadbconnector://root:dbpwx61@139.20.22.156:3306/ararsoftware"
+        soft_engine = create_engine(softurl)
+        global conn
+        url = r"mariadb+mariadbconnector://root:dbpwx61@139.20.22.156:3306/arardb"
+        engine = create_engine(url)
+        software_conn = soft_engine.connect()
+        conn = engine.connect()
         global pd_exp, blank_info, intensities_intercepts, intensities
         exp_index = np.squeeze(np.array(pd.read_sql(
             "SELECT exp_index  FROM experiments where exp_key='1'", software_conn)))
@@ -83,15 +61,16 @@ def experiment_dashboard(server):
             subset_intensities = intensities[[
                 'serial_nr', 'acq_datetime']].drop_duplicates()
             blank_data = automatic_blank_assigment(
-                blank_data, subset_intensities)
-
+                blank_data, subset_intensities) 
             blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
             blank_intercept = pd.read_sql(
-                f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
+                f"SELECT exp_nr,serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr in {blank_list}", software_conn)
             blank_intercept['blank_assignment'] = 'Automatic'
         else:
             blank_list = tuple(
                 blank_assignments_data['blank_experiment_no'].unique())+(0,)
+            blank_intercept = pd.read_sql(
+                f"SELECT exp_nr,serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr in {blank_list}", software_conn)
             blank_intercept['blank_assignment'] = 'Manual'
 
         blank_data1 = extract_blank_data(conn, blank_list)
@@ -100,7 +79,7 @@ def experiment_dashboard(server):
         
         blank_info = pd.merge(blank_info, blank_intercept,how='outer', on='exp_nr')
         experiment_intercepts = pd.read_sql(
-            f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
+            f"SELECT exp_nr,serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
         assigned_blank_intensities = pd.merge(intensities[['serial_nr', 'device', 'weight', 'method_name']].drop_duplicates(), blank_data,
                                               how='left', on='serial_nr')
         intensities_intercepts = pd.merge(
@@ -182,7 +161,7 @@ def experiment_dashboard(server):
             intensities = pd.merge(intensities, sensitivities,
                                    how='left', on='serial_nr')
             blank_assignments_data = pd.read_sql(
-                f"SELECT serial_nr,blank_experiment_nr,blank_experiment_type FROM blank_assignments where exp_nr ={exp_nr}", software_conn)
+                f"SELECT exp_nr,serial_nr,blank_experiment_nr,blank_experiment_type FROM blank_assignments where exp_nr ={exp_nr}", software_conn)
             blank_assignments_data['assignment'] = 'Manual'
             if blank_assignments_data.empty:
                 blank_data = extracting_blanks(conn, intensities[['acq_datetime']].min()[
@@ -194,7 +173,7 @@ def experiment_dashboard(server):
 
                 blank_list = tuple(blank_data['blank_experiment_no'].unique())+(0,)
                 blank_intercept = pd.read_sql(
-                    f"SELECT *  FROM blank_intercepts where exp_nr in {blank_list}", software_conn)
+                    f"SELECT exp_nr,serial_nr,ar36_intercept,ar37_intercept,ar38_intercept,ar39_intercept,ar40_intercept  FROM experiment_intercepts where exp_nr in {blank_list}", software_conn)
                 blank_intercept['blank_assignment'] = 'Automatic'
             else:
                 blank_list = tuple(
@@ -207,7 +186,7 @@ def experiment_dashboard(server):
             
             blank_info = pd.merge(blank_info, blank_intercept,how='left', on='exp_nr')
             experiment_intercepts = pd.read_sql(
-                f"SELECT serial_nr,Ar36_intercept,Ar37_intercept,Ar38_intercept,Ar39_intercept,Ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
+                f"SELECT serial_nr,ar36_intercept,ar37_intercept,ar38_intercept,ar39_intercept,ar40_intercept FROM experiment_intercepts where exp_nr ='{exp_nr}'", software_conn)
             assigned_blank_intensities = pd.merge(intensities[['serial_nr', 'device', 'weight', 'method_name']].drop_duplicates(), blank_data,
                                                   how='left', on='serial_nr')
             intensities_intercepts = pd.merge(
@@ -231,13 +210,19 @@ def experiment_dashboard(server):
                         html.Table([
                             html.Tr([html.Th(['Isotopes']), html.Th(['Ar36']), html.Th(
                                 ['Ar37']), html.Th(['Ar38']), html.Th(['Ar39']), html.Th(['Ar40'])]),
-                            html.Tr([html.Th(['Regression Intercepts']),
+                            html.Tr([html.Th(['Regression Intercepts ']),
+                                     html.Td(id='intercept_offset_A36'), html.Td(
+                                id='intercept_offset_A37'), html.Td(
+                                id='intercept_offset_A38'), html.Td(
+                                id='intercept_offset_A39'), html.Td(
+                                id='intercept_offset_A40')]),
+                            html.Tr([html.Th(['Intercepts Coefficient']),
                                      html.Td(id='intercept_A36'), html.Td(
                                 id='intercept_A37'), html.Td(
                                 id='intercept_A38'), html.Td(
                                 id='intercept_A39'), html.Td(
                                 id='intercept_A40')]),
-                            html.Tr([html.Th(['Regression MSE']),
+                            html.Tr([html.Th(['Intercept Standara error \u00B1']),
                                      html.Td(id='loss_A36'), html.Td(
                                 id='loss_A37'), html.Td(
                                 id='loss_A38'), html.Td(
@@ -260,24 +245,41 @@ def experiment_dashboard(server):
                     html.Div(id='container-button-basic')
                 ],
                 ),
-                html.Div([
+                html.Div(id='intercept_tab',
+                            children='')])
+            return tab2_layout
+    @exp_app.callback(Output('intercept_tab', 'children'),
+                        Input('blank_experiment_selection', 'value'))
+    def exp_intercept(val):
+        blank_intercept = pd.read_sql_query(f"select * from experiments_analysis where exp_nr={val}",software_conn)
+        if blank_intercept.empty :
+            blank_dic = {'exp_nr': {0: exp_nr}, 'serial_nr': {0: val}, 'ar36_intercept': {0: 0.0}, 'ar36_intercept_error': {0: 0.0}, 'ar36_regression_model': {0: 'Automatic'}, 'ar36_outlier_model': {0: 0}, 'ar36_upper_quantile': {0: 100}, 'ar36_lower_quantile': {0: 0}, 'ar37_intercept': {0: 0.0}, 'ar37_intercept_error': {0: 0.0}, 'ar37_regression_model': {0: 'Automatic'}, 'ar37_outlier_model': {0: 0}, 'ar37_upper_quantile': {0: 100}, 'ar37_lower_quantile': {0: 0}, 'ar38_intercept': {0: 0.0}, 'ar38_intercept_error': {
+                0: 0.0}, 'ar38_regression_model': {0: 'Automatic'}, 'ar38_outlier_model': {0: 0}, 'ar38_upper_quantile': {0: 100}, 'ar38_lower_quantile': {0: 0}, 'ar39_intercept': {0: 0.0}, 'ar39_intercept_error': {0: 0.0}, 'ar39_regression_model': {0: 'Automatic'}, 'ar39_outlier_model': {0: 0}, 'ar39_upper_quantile': {0: 100}, 'ar39_lower_quantile': {0: 0}, 'ar40_intercept': {0: 0.0}, 'ar40_intercept_error': {0: 0.0}, 'ar40_regression_model': {0: 'Automatic'}, 'ar40_outlier_model': {0: 0}, 'ar40_upper_quantile': {0: 100}, 'ar40_lower_quantile': {0: 0}}
+            blank_intercept=pd.DataFrame(blank_dic)
+        
+        layout=html.Div([html.Div([
                     html.Div([
                         html.Div([
                             dcc.RadioItems(
                                 ['Linear', 'Quadratic',
                                  'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Automatic',
+                                blank_intercept['ar36_regression_model'].values[0],
                                 id='regression_model_A36',
                                 labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A36',
-                                        value=[10, 90],
+                                        value=[
+                                            blank_intercept['ar36_lower_quantile'].values[0], blank_intercept['ar36_upper_quantile'].values[0]],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
                                         ),
+                        dcc.RadioItems(
+                                [0, 1,
+                                 2, 3],
+                            blank_intercept['ar36_outlier_model'].values[0],id='regression_outlier_A36', labelStyle={'display': 'inline-block', 'marginTop': '5px'}, style=dict(display='flex', justifyContent='center')),
                         dcc.Graph(
                             id='figure_A36',
                         )
@@ -288,18 +290,23 @@ def experiment_dashboard(server):
                             dcc.RadioItems(
                                 ['Linear', 'Quadratic',
                                  'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Automatic',
+                                blank_intercept['ar37_regression_model'].values[0],
                                 id='regression_model_A37',
                                 labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A37',
-                                        value=[10, 90],
+                                        value=[blank_intercept['ar37_lower_quantile'].values[0],
+                                               blank_intercept['ar37_upper_quantile'].values[0]],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
                                         ),
+                        dcc.RadioItems(
+                            [0, 1,
+                             2, 3],
+                            blank_intercept['ar37_outlier_model'].values[0], id='regression_outlier_A37', labelStyle={'display': 'inline-block', 'marginTop': '5px'}, style=dict(display='flex', justifyContent='center')),
                         dcc.Graph(
                             id='figure_A37',
                         ),
@@ -310,18 +317,22 @@ def experiment_dashboard(server):
                             dcc.RadioItems(
                                 ['Linear', 'Quadratic',
                                  'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Automatic',
+                                blank_intercept['ar38_regression_model'].values[0],
                                 id='regression_model_A38',
                                 labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A38',
-                                        value=[10, 90],
+                                        value=[blank_intercept['ar38_lower_quantile'].values[0], blank_intercept['ar38_upper_quantile'].values[0]],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
                                         ),
+                        dcc.RadioItems(
+                            [0, 1,
+                             2, 3],
+                            blank_intercept['ar38_outlier_model'].values[0], id='regression_outlier_A38', labelStyle={'display': 'inline-block', 'marginTop': '5px'}, style=dict(display='flex', justifyContent='center')),
                         dcc.Graph(
                             id='figure_A38',
                         )
@@ -334,18 +345,22 @@ def experiment_dashboard(server):
                             dcc.RadioItems(
                                 ['Linear', 'Quadratic',
                                     'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Automatic',
+                                blank_intercept['ar39_regression_model'].values[0],
                                 id='regression_model_A39',
                                 labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A39',
-                                        value=[10, 90],
+                                        value=[blank_intercept['ar39_lower_quantile'].values[0], blank_intercept['ar39_upper_quantile'].values[0]],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
                                         ),
+                        dcc.RadioItems(
+                            [0, 1,
+                             2, 3],
+                            blank_intercept['ar39_outlier_model'].values[0], id='regression_outlier_A39', labelStyle={'display': 'inline-block', 'marginTop': '5px'}, style=dict(display='flex', justifyContent='center')),
                         dcc.Graph(
                             id='figure_A39',
                         )
@@ -353,448 +368,176 @@ def experiment_dashboard(server):
 
                     html.Div([
                         html.Div([
-                            dcc.RadioItems(
-                                ['Linear', 'Quadratic',
-                                    'ElasticNet', 'Bayesian', 'Automatic'],
-                                'Quadratic',
-                                id='regression_model_A40',
-                                labelStyle={'display': 'inline-block', 'marginTop': '5px'})
+                                  dcc.RadioItems(
+                            ['Linear', 'Quadratic',
+                             'ElasticNet', 'Bayesian', 'Automatic'],
+                            blank_intercept['ar40_regression_model'].values[0],
+                            id='regression_model_A40',
+                            labelStyle={'display': 'inline-block', 'marginTop': '5px'})
                         ], style=dict(display='flex', justifyContent='center')),
 
                         dcc.RangeSlider(0, 100,
                                         step=2,
                                         id='quantile_slider_A40',
-                                        value=[5, 95],
+                                        value=[blank_intercept['ar40_lower_quantile'].values[0], blank_intercept['ar40_upper_quantile'].values[0]],
                                         marks={str(marker): str(marker) +
                                                '%' for marker in range(0, 100, 10)},
                                         allowCross=False
                                         ),
+                        dcc.RadioItems(
+                            [0, 1,
+                             2, 3],
+                            blank_intercept['ar40_outlier_model'].values[0], id='regression_outlier_A40', labelStyle={'display': 'inline-block', 'marginTop': '5px'}, style=dict(display='flex', justifyContent='center')),
                         dcc.Graph(
                             id='figure_A40',)
                     ], style={'width': '33%', 'display': 'inline-block'})
                 ], style={'display': 'block'}),
                 dcc.Store(id='intermediate-value')
             ], style={'width': '100%', 'display': 'inline-block'})
-            
-            return tab2_layout
+        return layout
 
     @exp_app.callback(
-            Output('figure_A36', 'figure'),
-            Output('intercept_A36', 'children'),
-            Output('loss_A36', 'children'),
-            Input('blank_experiment_selection', 'value'),
-            Input('quantile_slider_A36', 'value'),
-            Input('regression_model_A36', 'value'))
-    def updated_Ar36(exp_no, quantile_range, regression_model):
+        Output('figure_A36', 'figure'),
+        Output('intercept_A36', 'children'),
+        Output('loss_A36', 'children'),
+        Output('intercept_offset_A36', 'children'),
+        Input('blank_experiment_selection', 'value'),
+        Input('quantile_slider_A36', 'value'),
+        Input('regression_model_A36', 'value'),
+        Input('regression_outlier_A36', 'value'))
+    def updated_Ar36(exp_no, quantile_range, regression_model, outlier_option):
         Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v36']
-        low_percentile = quantile_range[0]/100
-        high_percentile = quantile_range[1]/100
-        q_low = v.quantile(low_percentile)
-        q_hi = v.quantile(high_percentile)
-        data = [go.Scatter(x=x[(v < q_hi) & (v > q_low)].to_list(),
-                           y=v[(v < q_hi) & (v > q_low)].to_list(), mode='markers', name='not Outliers'),
-                go.Scatter(x=x[(v > q_hi)].to_list(),
-                           y=v[(v > q_hi)].to_list(), mode='markers', name='Upper Outliers'),
-                go.Scatter(x=x[(v < q_low)].to_list(),
-                           y=v[(v < q_low)].to_list(), mode='markers', name='Lower Outliers')]
-        X_quan = x[(v < q_hi) & (v > q_low)]
-        Y_quan = v[(v < q_hi) & (v > q_low)]
-        model = regression_models(X_quan, Y_quan, regression_model)
-        if regression_model == 'Linear':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Quadratic':
-            polynomial_features = PolynomialFeatures(degree=2)
-            x_all = polynomial_features.fit_transform(
-                np.array(x).reshape(-1, 1))
-            X_TRANSF = polynomial_features.fit_transform(
-                np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0, :]])
-            Y_pred = model.predict(X_TRANSF)
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(x_all))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'SupportVectors':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'ElasticNet':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Bayesian':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Automatic':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                                   name=regression_model+' regression'))
-
-        figure = go.Figure(data=data)
+        x_offset = Ar_blank['time_zero']
+        rm = Regression(x.values, v.values, x_offset.values, quantile_range,
+                        outlier_option, regression_model)
+        rm.plot()
+        figure = go.Figure(data=rm.plotdata)
         figure.update_layout(title="Ar36", showlegend=False)
-
         figure.update_xaxes(title_text='Time (sec)',
                             linewidth=1)
-
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
-        if model is None:
-            return figure, 0, 0
-        return figure, np.squeeze(intercept), loss
+        intercept = rm.opt_model_parameters[-1]
+        standard_error = rm.model_standard_errors[-1]
+        offset_intercept = np.squeeze(rm.y_offset_pred[0])
+        return figure, intercept, standard_error, offset_intercept
 
     @exp_app.callback(
         Output('figure_A37', 'figure'),
         Output('intercept_A37', 'children'),
         Output('loss_A37', 'children'),
+        Output('intercept_offset_A37', 'children'),
         Input('blank_experiment_selection', 'value'),
         Input('quantile_slider_A37', 'value'),
-        Input('regression_model_A37', 'value'))
-    def updated_A37(exp_no, quantile_range, regression_model):
+        Input('regression_model_A37', 'value'),
+        Input('regression_outlier_A37', 'value'))
+    def updated_A37(exp_no, quantile_range, regression_model, outlier_option):
         Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v37']
-        low_percentile = quantile_range[0]/100
-        high_percentile = quantile_range[1]/100
-        q_low = v.quantile(low_percentile)
-        q_hi = v.quantile(high_percentile)
-        data = [go.Scatter(x=x[(v < q_hi) & (v > q_low)].to_list(),
-                           y=v[(v < q_hi) & (v > q_low)].to_list(), mode='markers', name='not Outliers'),
-                go.Scatter(x=x[(v > q_hi)].to_list(),
-                           y=v[(v > q_hi)].to_list(), mode='markers', name='Upper Outliers'),
-                go.Scatter(x=x[(v < q_low)].to_list(),
-                           y=v[(v < q_low)].to_list(), mode='markers', name='Lower Outliers')]
-        model = regression_models(x[(v < q_hi) & (v > q_low)],
-                                  v[(v < q_hi) & (v > q_low)], regression_model)
-        X_quan = x[(v < q_hi) & (v > q_low)]
-        Y_quan = v[(v < q_hi) & (v > q_low)]
-        model = regression_models(X_quan, Y_quan, regression_model)
-        if regression_model == 'Linear':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Quadratic':
-            polynomial_features = PolynomialFeatures(degree=2)
-            x_all = polynomial_features.fit_transform(
-                np.array(x).reshape(-1, 1))
-            X_TRANSF = polynomial_features.fit_transform(
-                np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0, :]])
-            Y_pred = model.predict(X_TRANSF)
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(x_all))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'SupportVectors':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'ElasticNet':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Bayesian':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Automatic':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                                   name=regression_model+' regression'))
-
-        figure = go.Figure(data=data)
+        x_offset = Ar_blank['time_zero']
+        rm37 = Regression(x.values, v.values, x_offset.values, quantile_range,
+                          outlier_option, regression_model)
+        rm37.plot()
+        figure = go.Figure(data=rm37.plotdata)
         figure.update_layout(title="Ar37", showlegend=False)
         figure.update_xaxes(title_text='Time (sec)',
                             linewidth=1)
-
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
-        if model is None:
-            return figure, 0, 0
-        return figure, np.squeeze(intercept), loss
+        intercept = rm37.opt_model_parameters[-1]
+        standard_error = rm37.model_standard_errors[-1]
+        offset_intercept = np.squeeze(rm37.y_offset_pred[0])
+        return figure, intercept, standard_error, offset_intercept
 
     @exp_app.callback(
         Output('figure_A38', 'figure'),
         Output('intercept_A38', 'children'),
         Output('loss_A38', 'children'),
+        Output('intercept_offset_A38', 'children'),
         Input('blank_experiment_selection', 'value'),
         Input('quantile_slider_A38', 'value'),
-        Input('regression_model_A38', 'value'))
-    def updated_A38(exp_no, quantile_range, regression_model):
+        Input('regression_model_A38', 'value'),
+        Input('regression_outlier_A38', 'value'))
+    def updated_A38(exp_no, quantile_range, regression_model, outlier_option):
         Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v38']
-        low_percentile = quantile_range[0]/100
-        high_percentile = quantile_range[1]/100
-        q_low = v.quantile(low_percentile)
-        q_hi = v.quantile(high_percentile)
-        data = [go.Scatter(x=x[(v < q_hi) & (v > q_low)].to_list(),
-                           y=v[(v < q_hi) & (v > q_low)].to_list(), mode='markers', name='not Outliers'),
-                go.Scatter(x=x[(v > q_hi)].to_list(),
-                           y=v[(v > q_hi)].to_list(), mode='markers', name='Upper Outliers'),
-                go.Scatter(x=x[(v < q_low)].to_list(),
-                           y=v[(v < q_low)].to_list(), mode='markers', name='Lower Outliers')]
-        X_quan = x[(v < q_hi) & (v > q_low)]
-        Y_quan = v[(v < q_hi) & (v > q_low)]
-        model = regression_models(X_quan, Y_quan, regression_model)
-        if regression_model == 'Linear':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Quadratic':
-            polynomial_features = PolynomialFeatures(degree=2)
-            x_all = polynomial_features.fit_transform(
-                np.array(x).reshape(-1, 1))
-            X_TRANSF = polynomial_features.fit_transform(
-                np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0, :]])
-            Y_pred = model.predict(X_TRANSF)
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(x_all))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'SupportVectors':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'ElasticNet':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Bayesian':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Automatic':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                                   name=regression_model+' regression'))
-
-        figure = go.Figure(data=data)
+        x_offset = Ar_blank['time_zero']
+        rm38 = Regression(x.values, v.values, x_offset.values, quantile_range,
+                          outlier_option, regression_model)
+        rm38.plot()
+        figure = go.Figure(data=rm38.plotdata)
         figure.update_layout(title="Ar38", showlegend=False)
         figure.update_xaxes(title_text='Time (sec)',
                             linewidth=1)
-
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
-        if model is None:
-            return figure, 0, 0
-        return figure, np.squeeze(intercept), loss
+        intercept = rm38.opt_model_parameters[-1]
+        standard_error = rm38.model_standard_errors[-1]
+        offset_intercept = np.squeeze(rm38.y_offset_pred[0])
+        return figure, intercept, standard_error, offset_intercept
 
     @exp_app.callback(
         Output('figure_A39', 'figure'),
         Output('intercept_A39', 'children'),
         Output('loss_A39', 'children'),
+        Output('intercept_offset_A39', 'children'),
         Input('blank_experiment_selection', 'value'),
         Input('quantile_slider_A39', 'value'),
-        Input('regression_model_A39', 'value'))
-    def updated_A39(exp_no, quantile_range, regression_model):
+        Input('regression_model_A39', 'value'),
+        Input('regression_outlier_A39', 'value'))
+    def updated_A39(exp_no, quantile_range, regression_model, outlier_option):
         Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v39']
-        low_percentile = quantile_range[0]/100
-        high_percentile = quantile_range[1]/100
-        q_low = v.quantile(low_percentile)
-        q_hi = v.quantile(high_percentile)
-        data = [go.Scatter(x=x[(v < q_hi) & (v > q_low)].to_list(),
-                           y=v[(v < q_hi) & (v > q_low)].to_list(), mode='markers', name='not Outliers'),
-                go.Scatter(x=x[(v > q_hi)].to_list(),
-                           y=v[(v > q_hi)].to_list(), mode='markers', name='Upper Outliers'),
-                go.Scatter(x=x[(v < q_low)].to_list(),
-                           y=v[(v < q_low)].to_list(), mode='markers', name='Lower Outliers')]
-        X_quan = x[(v < q_hi) & (v > q_low)]
-        Y_quan = v[(v < q_hi) & (v > q_low)]
-        model = regression_models(X_quan, Y_quan, regression_model)
-        if regression_model == 'Linear':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Quadratic':
-            polynomial_features = PolynomialFeatures(degree=2)
-            x_all = polynomial_features.fit_transform(
-                np.array(x).reshape(-1, 1))
-            X_TRANSF = polynomial_features.fit_transform(
-                np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0, :]])
-            Y_pred = model.predict(X_TRANSF)
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(x_all))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'SupportVectors':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'ElasticNet':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Bayesian':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Automatic':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                                   name=regression_model+' regression'))
-
-        figure = go.Figure(data=data)
+        x_offset = Ar_blank['time_zero']
+        rm39 = Regression(x.values, v.values, x_offset.values, quantile_range,
+                          outlier_option, regression_model)
+        rm39.plot()
+        figure = go.Figure(data=rm39.plotdata)
         figure.update_layout(title="Ar39", showlegend=False)
         figure.update_xaxes(title_text='Time (sec)',
                             linewidth=1)
-
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
-        if model is None:
-            return figure, 0, 0
-        return figure, np.squeeze(intercept), loss
+        intercept = rm39.opt_model_parameters[-1]
+        standard_error = rm39.model_standard_errors[-1]
+        offset_intercept = np.squeeze(rm39.y_offset_pred[0])
+        return figure, intercept, standard_error, offset_intercept
 
     @exp_app.callback(
         Output('figure_A40', 'figure'),
         Output('intercept_A40', 'children'),
         Output('loss_A40', 'children'),
+        Output('intercept_offset_A40', 'children'),
         Input('blank_experiment_selection', 'value'),
         Input('quantile_slider_A40', 'value'),
-        Input('regression_model_A40', 'value'))
-    def updated_A40(exp_no, quantile_range, regression_model):
+        Input('regression_model_A40', 'value'),
+        Input('regression_outlier_A40', 'value'))
+    def updated_A40(exp_no, quantile_range, regression_model, outlier_option):
         Ar_blank = intensities[intensities['serial_nr'] == exp_no]
         x = Ar_blank['start']
         v = Ar_blank['v40']
-        low_percentile = quantile_range[0]/100
-        high_percentile = quantile_range[1]/100
-        q_low = v.quantile(low_percentile)
-        q_hi = v.quantile(high_percentile)
-        data = [go.Scatter(x=x[(v < q_hi) & (v > q_low)].to_list(),
-                           y=v[(v < q_hi) & (v > q_low)].to_list(), mode='markers', name='not Outliers'),
-                go.Scatter(x=x[(v > q_hi)].to_list(),
-                           y=v[(v > q_hi)].to_list(), mode='markers', name='Upper Outliers'),
-                go.Scatter(x=x[(v < q_low)].to_list(),
-                           y=v[(v < q_low)].to_list(), mode='markers', name='Lower Outliers')]
-        X_quan = x[(v < q_hi) & (v > q_low)]
-        Y_quan = v[(v < q_hi) & (v > q_low)]
-        model = regression_models(X_quan, Y_quan, regression_model)
-        if regression_model == 'Linear':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Quadratic':
-            polynomial_features = PolynomialFeatures(degree=2)
-            x_all = polynomial_features.fit_transform(
-                np.array(x).reshape(-1, 1))
-            X_TRANSF = polynomial_features.fit_transform(
-                np.array(X_quan).reshape(-1, 1))
-            intercept = model.predict([x_all[0, :]])
-            Y_pred = model.predict(X_TRANSF)
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(x_all))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'SupportVectors':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'ElasticNet':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Bayesian':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                        name=regression_model+' regression'))
-        elif regression_model == 'Automatic':
-            intercept = model.predict([[np.array(x)[0]]])
-            Y_pred = model.predict(np.array(X_quan).reshape(-1, 1))
-            loss = mean_squared_error(Y_pred, np.array(Y_quan))
-            line_model = np.squeeze(model.predict(np.array(x).reshape(-1, 1)))
-            data.append(go.Scatter(x=x.to_list(), y=line_model,
-                                   name=regression_model+' regression'))
-
-        figure = go.Figure(data=data)
+        x_offset = Ar_blank['time_zero']
+        rm40 = Regression(x.values, v.values, x_offset.values, quantile_range,
+                          outlier_option, regression_model)
+        rm40.plot()
+        figure = go.Figure(data=rm40.plotdata)
         figure.update_layout(title="Ar40", showlegend=False)
         figure.update_xaxes(title_text='Time (sec)',
                             linewidth=1)
-
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
-        if model is None:
-            return figure, 0, 0
-        return figure, np.squeeze(intercept), loss
+        intercept = rm40.opt_model_parameters[-1]
+        standard_error = rm40.model_standard_errors[-1]
+        offset_intercept = np.squeeze(rm40.y_offset_pred[0])
+        return figure, intercept, standard_error, offset_intercept
+
+
+   
 
     @exp_app.callback(Output('confirm-danger', 'displayed'),
                         Input('save-val', 'n_clicks'))
@@ -803,11 +546,25 @@ def experiment_dashboard(server):
             return True
         return False
 
-    def update_blank_intercepts(serial_nr, A36, A37, A38, A39, A40):
-        cur = software_conn.cursor()
-        cur.execute(
-            f"INSERT INTO experiment_intercepts (exp_nr,serial_nr, Ar36_intercept, Ar37_intercept, Ar38_intercept, Ar39_intercept, Ar40_intercept) VALUES('{exp_nr}','{serial_nr}', '{A36}', '{A37}', '{A38}', '{A39}', '{A40}') ON DUPLICATE KEY UPDATE Ar36_intercept = '{A36}', Ar37_intercept ='{A37}', Ar38_intercept ='{A38}', Ar39_intercept= '{A39}', Ar40_intercept ='{A40}'")
-        software_conn.commit()
+    def update_blank_intercepts(exp, intercept_a36, error_a36, rm_36, ro_36, quantile_lower_36, quantile_upper_36,
+                                intercept_a37, error_a37, rm_37, ro_37, quantile_lower_37, quantile_upper_37,
+                                intercept_a38, error_a38, rm_38, ro_38, quantile_lower_38, quantile_upper_38,
+                                intercept_a39, error_a39, rm_39, ro_39, quantile_lower_39, quantile_upper_39,
+                                intercept_a40, error_a40, rm_40, ro_40, quantile_lower_40, quantile_upper_40):
+
+        softurl = r"mariadb+mariadbconnector://root:dbpwx61@139.20.22.156:3306/ararsoftware"
+        soft_engine = create_engine(softurl)
+        soft_engine.execute(f"INSERT INTO experiments_analysis (exp_nr,serial_nr, ar36_intercept, ar36_intercept_error, ar36_regression_model, ar36_outlier_model,ar36_upper_quantile, ar36_lower_quantile,ar37_intercept, ar37_intercept_error, ar37_regression_model, ar37_outlier_model,ar37_upper_quantile, ar37_lower_quantile ,ar38_intercept, ar38_intercept_error, ar38_regression_model, ar38_outlier_model,ar38_upper_quantile, ar38_lower_quantile,ar39_intercept, ar39_intercept_error, ar39_regression_model, ar39_outlier_model,ar39_upper_quantile, ar39_lower_quantile,ar40_intercept, ar40_intercept_error, ar40_regression_model, ar40_outlier_model,ar40_upper_quantile, ar40_lower_quantile) VALUES('{exp_nr}',{exp},'{intercept_a36}', '{error_a36}', '{rm_36}', '{ro_36}', '{quantile_upper_36}', '{quantile_lower_36}','{intercept_a37}', '{error_a37}', '{rm_37}', '{ro_37}','{quantile_upper_37}', '{quantile_lower_37}','{intercept_a38}', '{error_a38}', '{rm_38}', '{ro_38}','{quantile_upper_38}', '{quantile_lower_38}','{intercept_a39}', '{error_a39}', '{rm_39}', '{ro_39}','{quantile_upper_39}', '{quantile_lower_39}', '{intercept_a40}', '{error_a40}', '{rm_40}', '{ro_40}','{quantile_upper_40}', '{quantile_lower_40}') ON DUPLICATE KEY UPDATE ar36_intercept='{intercept_a36}', ar36_intercept_error='{error_a36}', ar36_regression_model='{rm_36}',ar36_outlier_model= '{ro_36}', ar36_lower_quantile='{quantile_lower_36}', ar36_upper_quantile='{quantile_upper_36}',ar37_intercept='{intercept_a37}', ar37_intercept_error='{error_a37}', ar37_regression_model='{rm_37}',ar37_outlier_model= '{ro_37}', ar37_lower_quantile='{quantile_lower_37}', ar37_upper_quantile='{quantile_upper_37}',ar38_intercept='{intercept_a38}', ar38_intercept_error='{error_a38}', ar38_regression_model='{rm_38}',ar38_outlier_model= '{ro_38}', ar38_lower_quantile='{quantile_lower_38}', ar38_upper_quantile='{quantile_upper_38}',ar39_intercept='{intercept_a39}', ar39_intercept_error='{error_a39}', ar39_regression_model='{rm_39}',ar39_outlier_model= '{ro_39}', ar39_lower_quantile='{quantile_lower_39}', ar39_upper_quantile='{quantile_upper_39}',ar40_intercept='{intercept_a40}', ar40_intercept_error='{error_a40}', ar40_regression_model='{rm_40}',ar40_outlier_model= '{ro_40}', ar40_lower_quantile='{quantile_lower_40}', ar40_upper_quantile='{quantile_upper_40}'"
+                            )
+
+        pass
+
+    def update_time_intercepts(exp, offset_36, error_a36, offset_37, error_a37, offset_38, error_a38, offset_39, error_a39, offset_40, error_a40):
+        softurl = r"mariadb+mariadbconnector://root:dbpwx61@139.20.22.156:3306/ararsoftware"
+        soft_engine = create_engine(softurl)
+
+        soft_engine.execute(f"INSERT INTO experiment_intercepts (exp_nr,serial_nr, ar36_intercept, ar36_standard_error,ar37_intercept, ar37_standard_error,ar38_intercept, ar38_standard_error,ar39_intercept, ar39_standard_error,ar40_intercept, ar40_standard_error) VALUES ('{exp_nr}','{exp}','{offset_36}','{error_a36}','{offset_37}','{error_a37}','{offset_38}','{error_a38}','{offset_39}','{error_a39}','{offset_40}','{error_a40}') ON DUPLICATE KEY UPDATE ar36_intercept='{offset_36}',ar36_standard_error='{error_a36}',ar37_intercept='{offset_37}',ar37_standard_error='{error_a37}',ar38_intercept='{offset_38}',ar38_standard_error='{error_a38}',ar39_intercept='{offset_39}',ar39_standard_error='{error_a39}',ar40_intercept='{offset_40}',ar40_standard_error='{error_a40}'"
+                            )
         pass
 
     @exp_app.callback(
@@ -815,17 +572,62 @@ def experiment_dashboard(server):
         Output('confirm-danger', 'submit_n_clicks'),
         Input('confirm-danger', 'submit_n_clicks'),
         Input('blank_experiment_selection', 'value'),
+
         Input('intercept_A36', 'children'),
+        Input('loss_A36', 'children'),
+        Input('regression_model_A36', 'value'),
+        Input('regression_outlier_A36', 'value'),
+        Input('quantile_slider_A36', 'value'),
+
         Input('intercept_A37', 'children'),
+        Input('loss_A37', 'children'),
+        Input('regression_model_A37', 'value'),
+        Input('regression_outlier_A37', 'value'),
+        Input('quantile_slider_A37', 'value'),
+
         Input('intercept_A38', 'children'),
+        Input('loss_A38', 'children'),
+        Input('regression_model_A38', 'value'),
+        Input('regression_outlier_A38', 'value'),
+        Input('quantile_slider_A38', 'value'),
+
         Input('intercept_A39', 'children'),
-        Input('intercept_A40', 'children')
+        Input('loss_A39', 'children'),
+        Input('regression_model_A39', 'value'),
+        Input('regression_outlier_A39', 'value'),
+        Input('quantile_slider_A39', 'value'),
+
+        Input('intercept_A40', 'children'),
+        Input('loss_A40', 'children'),
+        Input('regression_model_A40', 'value'),
+        Input('regression_outlier_A40', 'value'),
+        Input('quantile_slider_A40', 'value'),
+
+        Input('intercept_offset_A36', 'children'),
+        Input('intercept_offset_A37', 'children'),
+        Input('intercept_offset_A38', 'children'),
+        Input('intercept_offset_A39', 'children'),
+        Input('intercept_offset_A40', 'children'),
     )
-    def save_intercepts(n, serial_nr, A36, A37, A38, A39, A40):
+    def save_intercepts(n, exp, intercept_a36, error_a36, rm_36, ro_36, quantile_36,
+                        intercept_a37, error_a37, rm_37, ro_37, quantile_37,
+                        intercept_a38, error_a38, rm_38, ro_38, quantile_38,
+                        intercept_a39, error_a39, rm_39, ro_39, quantile_39,
+                        intercept_a40, error_a40, rm_40, ro_40, quantile_40, offset_36, offset_37, offset_38, offset_39, offset_40):
+
         if n is not None and n >= 1:
-            update_blank_intercepts(serial_nr, np.squeeze(A36), np.squeeze(
-                A37), np.squeeze(A38), np.squeeze(A39), np.squeeze(A40))
+            update_blank_intercepts(exp, np.squeeze(intercept_a36),
+                                    np.squeeze(error_a36), np.squeeze(rm_36), np.squeeze(
+                                        ro_36), np.squeeze(quantile_36[0]), np.squeeze(quantile_36[1]),
+                                    np.squeeze(intercept_a37), np.squeeze(
+                error_a37), np.squeeze(rm_37), np.squeeze(ro_37), np.squeeze(quantile_37[0]), np.squeeze(quantile_37[1]),
+                np.squeeze(intercept_a38), np.squeeze(
+                error_a38), np.squeeze(rm_38), np.squeeze(ro_38), np.squeeze(quantile_38[0]), np.squeeze(quantile_38[1]),
+                np.squeeze(intercept_a39), np.squeeze(
+                error_a39), np.squeeze(rm_39), np.squeeze(ro_39), np.squeeze(quantile_39[0]), np.squeeze(quantile_39[1]),
+                np.squeeze(intercept_a40), np.squeeze(
+                error_a40), np.squeeze(rm_40), np.squeeze(ro_40), np.squeeze(quantile_40[0]), np.squeeze(quantile_40[1]))
+            update_time_intercepts(exp, np.squeeze(offset_36), np.squeeze(error_a36), np.squeeze(offset_37), np.squeeze(error_a37),
+                                   np.squeeze(offset_38), np.squeeze(error_a38), np.squeeze(offset_39), np.squeeze(error_a39), np.squeeze(offset_40), np.squeeze(error_a40))
         return 0, 0
     return exp_app
-# if __name__ == '__main__':
-#     app.run_server(debug=True)

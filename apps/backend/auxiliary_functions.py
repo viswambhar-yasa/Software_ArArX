@@ -225,9 +225,10 @@ def check_steps(intensities_data, parameters):
 
 
 class Regression:
-    def __init__(self, x, y, quantile_range,option, regression_model) -> None:
+    def __init__(self, x, y,x_offset, quantile_range,option, regression_model) -> None:
         self.x_o=x
         self.y_o=y
+        self.x_offset=x_offset
         low_percentile = quantile_range[0]/100
         high_percentile = quantile_range[1]/100
         self.q_low = np.quantile(np.array(y),low_percentile)
@@ -240,7 +241,6 @@ class Regression:
         self.y=Y
         self.model_type=regression_model
         self.distance_option = option
-        
         self.x_mean=np.mean(self.x)
         self.y_mean=np.mean(self.y)
         loss = np.inf
@@ -351,7 +351,6 @@ class Regression:
             self.y_trim = []
             self.x_outliers = []
             self.y_outliers = []
-            print(self.x_trim)
         pass 
     def optimized_regression_model(self):
         self.outlier_detection()
@@ -377,15 +376,15 @@ class Regression:
             self.optimized_model = optmodel
             if self.model_type == 'Quadratic':
                 y_pred = self.optimized_model.predict(x_poly)
-                x_w_intercepts = PolynomialFeatures(degree=2).fit_transform(self.x_trim)
+                self.x_w_intercepts = PolynomialFeatures(degree=2).fit_transform(self.x_trim)
             else:
                 y_pred = self.optimized_model.predict(self.x_trim)
-                x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x_trim)
+                self.x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x_trim)
             residual = self.y_trim-y_pred
             sum_of_squares = np.sum(
                 (residual) ** 2)/(N-(P-1)-1)
             sd_alpha = np.sqrt(sum_of_squares *
-                               (np.diag(np.linalg.pinv(np.dot(x_w_intercepts.T, x_w_intercepts)))))
+                               (np.diag(np.linalg.pinv(np.dot(self.x_w_intercepts.T, self.x_w_intercepts)))))
             self.opt_model_standard_errors = np.sqrt(sd_alpha)
         else:
             self.optimized_model=self.model
@@ -396,14 +395,25 @@ class Regression:
     def plot(self):
         self.optimized_regression_model()
         inp = self.x_o.reshape(-1, 1)
+        offset_inp=self.x_offset.reshape(-1, 1)
         if self.model_type=='Quadratic':
             poly = PolynomialFeatures(degree=2, include_bias=False).fit(inp)
             x_poly = poly.transform(inp)
             y_un_pred = np.squeeze(self.model.predict(x_poly))
             y_op_pred = np.squeeze(self.optimized_model.predict(x_poly))
+            x_poly_offset = PolynomialFeatures(
+                degree=2, include_bias=False).fit_transform(offset_inp)
+            y_offset_un_pred = np.squeeze(
+                self.model.predict(x_poly_offset))
+            self.y_offset_pred = np.squeeze(
+                self.optimized_model.predict(x_poly_offset))
+            
         else:
             y_un_pred = np.squeeze(self.model.predict(inp))
             y_op_pred = np.squeeze(self.optimized_model.predict(inp))
+            y_offset_un_pred = np.squeeze(self.model.predict(offset_inp))
+            self.y_offset_pred = np.squeeze(
+                self.optimized_model.predict(offset_inp))
         if self.distance_option!=0:
             self.plotdata = [go.Scatter(x=np.squeeze(self.x).T,
                                         y=self.y, mode='markers', name='not Outliers', marker=dict(size=8, color='Blue',
@@ -419,10 +429,14 @@ class Regression:
                                                                                                                                                   color='Grey'), opacity=0.75)),
                              go.Scatter(x=self.x_o, y=y_un_pred,
                                         name=self.model_type+' actual regression', line=dict(width=2, color='mediumblue', dash='dash')),
+                             go.Scatter(x=self.x_offset, y=y_offset_un_pred,
+                                        name=self.model_type+' offset prediction', line=dict(width=2, color='mediumblue', dash='dash')),
                              go.Scatter(x=self.x_outliers, y=self.y_outliers,
                                         mode='markers', name='Outlier', marker=dict(size=8, color='purple')),
                              go.Scatter(x=self.x_o, y=y_op_pred,
-                             name=self.model_type+' optimized regression', line=dict(width=3, dash='solid', color='darkgoldenrod'))]
+                             name=self.model_type+' optimized regression', line=dict(width=3, dash='solid', color='darkgoldenrod')),
+                             go.Scatter(x=self.x_offset, y=self.y_offset_pred,
+                             name='offset prediction', line=dict(width=3, dash='dash', color='darkgoldenrod'))]
         else:
             self.plotdata = [go.Scatter(x=np.squeeze(self.x).T,
                                         y=self.y, mode='markers', name='not Outliers', marker=dict(size=8, color='Blue',
@@ -438,4 +452,6 @@ class Regression:
                                                                                                                                                   color='DarkSlateGrey'), opacity=0.75)),
                              go.Scatter(x=self.x_o, y=y_un_pred,
                                         name=self.model_type+' actual regression', line=dict(width=2, color='darkgoldenrod', dash='solid')),
+                             go.Scatter(x=self.x_offset, y=self.y_offset_pred,
+                             name=' offset prediction', line=dict(width=3, dash='dash', color='darkgoldenrod'))
                              ]

@@ -251,7 +251,7 @@ def experiment_dashboard(server):
     @exp_app.callback(Output('intercept_tab', 'children'),
                         Input('blank_experiment_selection', 'value'))
     def exp_intercept(val):
-        blank_intercept = pd.read_sql_query(f"select * from experiments_analysis where exp_nr={val}",software_conn)
+        blank_intercept = pd.read_sql_query(f"select * from experiments_analysis where serial_nr={val}",software_conn)
         if blank_intercept.empty :
             blank_dic = {'exp_nr': {0: exp_nr}, 'serial_nr': {0: val}, 'ar36_intercept': {0: 0.0}, 'ar36_intercept_error': {0: 0.0}, 'ar36_regression_model': {0: 'Automatic'}, 'ar36_outlier_model': {0: 0}, 'ar36_upper_quantile': {0: 100}, 'ar36_lower_quantile': {0: 0}, 'ar37_intercept': {0: 0.0}, 'ar37_intercept_error': {0: 0.0}, 'ar37_regression_model': {0: 'Automatic'}, 'ar37_outlier_model': {0: 0}, 'ar37_upper_quantile': {0: 100}, 'ar37_lower_quantile': {0: 0}, 'ar38_intercept': {0: 0.0}, 'ar38_intercept_error': {
                 0: 0.0}, 'ar38_regression_model': {0: 'Automatic'}, 'ar38_outlier_model': {0: 0}, 'ar38_upper_quantile': {0: 100}, 'ar38_lower_quantile': {0: 0}, 'ar39_intercept': {0: 0.0}, 'ar39_intercept_error': {0: 0.0}, 'ar39_regression_model': {0: 'Automatic'}, 'ar39_outlier_model': {0: 0}, 'ar39_upper_quantile': {0: 100}, 'ar39_lower_quantile': {0: 0}, 'ar40_intercept': {0: 0.0}, 'ar40_intercept_error': {0: 0.0}, 'ar40_regression_model': {0: 'Automatic'}, 'ar40_outlier_model': {0: 0}, 'ar40_upper_quantile': {0: 100}, 'ar40_lower_quantile': {0: 0}}

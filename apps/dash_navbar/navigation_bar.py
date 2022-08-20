@@ -18,6 +18,7 @@ def Navbar():
             ],
             brand="Thermochronology",
             brand_href="/",
+            brand_external_link=True,
             color="dark",
             dark=True,
         )

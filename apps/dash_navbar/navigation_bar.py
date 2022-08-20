@@ -5,20 +5,22 @@ from dash import html
 def Navbar():
     layout = html.Div([
         dbc.NavbarSimple(
+            
             children=[
                 dbc.NavItem(dbc.NavLink(
-                    "Dashbaord", href="/dashboard/", active='exact')),
+                    "Dashbaord", href="/dashboard/", active='exact',external_link=True)),
                 dbc.NavItem(dbc.NavLink(
-                    "Blanks", href="/blanks/", active='exact')),
-                dbc.NavItem(dbc.NavLink("Experiments", href="/experiment/",active='exact')),
+                    "Blanks", href="/blanks/", active='exact', external_link=True)),
+                dbc.NavItem(dbc.NavLink(
+                    "Experiments", href="/experiment/", active='exact', external_link=True)),
                 dbc.NavItem(dbc.NavLink("Age Analysis",
-                            href="/age/", active='exact')),
+                            href="/age/", active='exact', external_link=True)),
             ],
             brand="Thermochronology",
             brand_href="/",
             color="dark",
             dark=True,
-        ),
+        )
     ])
 
     return layout

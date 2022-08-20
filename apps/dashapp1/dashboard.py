@@ -1,4 +1,5 @@
 import mariadb
+import dash
 import pandas as pd
 from dash import html, Dash, Input, Output, dash_table, no_update, dcc
 from apps.dash_navbar.navigation_bar import Navbar
@@ -14,7 +15,7 @@ def dashboard(server):
         'https://codepen.io/chriddyp/pen/bWLwgP.css', dbc.themes.BOOTSTRAP]
     dash_app = Dash(__name__, server=server, url_base_pathname='/dashboard/',
                     external_stylesheets=external_stylesheets)
-    
+    dash.register_page(__name__, path='/dashboard/')
     header = Navbar()
     def layout():
             global url

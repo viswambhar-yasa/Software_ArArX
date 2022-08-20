@@ -7,14 +7,14 @@ import pandas as pd
 import json
 import numpy as np
 from sqlalchemy import create_engine
-
+import dash
 
 def blank_dashboard(server):
     external_stylesheets = [
         'https://codepen.io/chriddyp/pen/bWLwgP.css', dbc.themes.BOOTSTRAP]
     blank_app = Dash(__name__, server=server, url_base_pathname='/blanks/',
                      external_stylesheets=external_stylesheets)
-
+    dash.register_page(__name__,path='/blanks/')
     def update_layout():
         global software_conn
         softurl = r"mariadb+mariadbconnector://root:dbpwx61@139.20.22.156:3306/ararsoftware"

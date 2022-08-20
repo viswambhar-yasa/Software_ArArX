@@ -18,8 +18,8 @@ def experiment_dashboard(server):
     external_stylesheets = [
         'https://codepen.io/chriddyp/pen/bWLwgP.css', dbc.themes.BOOTSTRAP]
     exp_app = Dash(__name__, server=server, url_base_pathname='/experiment/',
-                     external_stylesheets=external_stylesheets)
-
+                   external_stylesheets=external_stylesheets)
+    
     register_page(
     __name__,
     path='/experiment/')

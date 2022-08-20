@@ -30,18 +30,16 @@ def login():
 
 @website.route('/dashboard')
 def render_dashboard():
-    if request.method == 'POST':
-        print()
     return redirect(url_for('/dashboard'))
 
 
-# @website.route('/blanks')
-# def render_blank():
-#     return redirect(url_for('/blanks'))
+@website.route('/blanks')
+def render_blank():
+    return redirect(url_for('/blanks'))
 
-# @website.route('/experiment')
-# def render_experiment():
-#     return redirect(url_for('/experiment'))
+@website.route('/experiment')
+def render_experiment():
+    return redirect(url_for('/experiment'))
 
 # @website_flow.route('/dashboard', methods=['POST', 'GET'])
 # def dashboard():

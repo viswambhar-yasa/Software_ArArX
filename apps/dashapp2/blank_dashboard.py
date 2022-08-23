@@ -115,24 +115,24 @@ def blank_dashboard(server):
                         html.Table([
                             html.Tr([html.Th(['Isotopes']), html.Th(['Ar36']), html.Th(
                                 ['Ar37']), html.Th(['Ar38']), html.Th(['Ar39']), html.Th(['Ar40'])]),
-                            html.Tr([html.Th(['Regression Intercepts ']),
+                            html.Tr([html.Th(['Time offset Intercepts ']),
                                      html.Td(id='intercept_offset_A36'), html.Td(
                                 id='intercept_offset_A37'), html.Td(
                                 id='intercept_offset_A38'), html.Td(
                                 id='intercept_offset_A39'), html.Td(
                                 id='intercept_offset_A40')]),
-                            html.Tr([html.Th(['Intercepts Coefficient']),
-                                     html.Td(id='intercept_A36'), html.Td(
-                                id='intercept_A37'), html.Td(
-                                id='intercept_A38'), html.Td(
-                                id='intercept_A39'), html.Td(
-                                id='intercept_A40')]),
-                            html.Tr([html.Th(['Intercept Standard error \u00B1']),
+                            html.Tr([html.Th(['Residual error \u00B1']),
                                      html.Td(id='loss_A36'), html.Td(
                                 id='loss_A37'), html.Td(
                                 id='loss_A38'), html.Td(
                                 id='loss_A39'), html.Td(
-                                id='loss_A40')])
+                                id='loss_A40')]),
+                        html.Tr([html.Th(['Intercepts Coefficient']),
+                                     html.Td(id='intercept_A36'), html.Td(
+                                id='intercept_A37'), html.Td(
+                                id='intercept_A38'), html.Td(
+                                id='intercept_A39'), html.Td(
+                                id='intercept_A40')])
                         ])], style={'display': 'inline-block',
                                     'vertical-align': 'top',
                                     'width': '70%', "padding-left": '15px', "padding-bottom": '5px'}),
@@ -542,7 +542,7 @@ def blank_dashboard(server):
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
         intercept = rm.opt_model_parameters[-1]
-        standard_error = rm.model_standard_errors[-1]
+        standard_error = rm.residual_error
         offset_intercept = np.squeeze(rm.y_offset_pred[0])
         return figure, intercept, standard_error, offset_intercept
 
@@ -570,7 +570,7 @@ def blank_dashboard(server):
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
         intercept = rm37.opt_model_parameters[-1]
-        standard_error = rm37.model_standard_errors[-1]
+        standard_error = rm37.residual_error
         offset_intercept=np.squeeze(rm37.y_offset_pred[0])
         return figure, intercept, standard_error, offset_intercept
     
@@ -598,7 +598,7 @@ def blank_dashboard(server):
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
         intercept = rm38.opt_model_parameters[-1]
-        standard_error = rm38.model_standard_errors[-1]
+        standard_error = rm38.residual_error
         offset_intercept = np.squeeze(rm38.y_offset_pred[0])
         return figure, intercept, standard_error, offset_intercept
 
@@ -626,7 +626,7 @@ def blank_dashboard(server):
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
         intercept = rm39.opt_model_parameters[-1]
-        standard_error = rm39.model_standard_errors[-1]
+        standard_error = rm39.residual_error
         offset_intercept = np.squeeze(rm39.y_offset_pred[0])
         return figure, intercept, standard_error, offset_intercept
 
@@ -654,7 +654,7 @@ def blank_dashboard(server):
         figure.update_yaxes(title_text='Intensity (V)',
                             linewidth=1)
         intercept = rm40.opt_model_parameters[-1]
-        standard_error = rm40.model_standard_errors[-1]
+        standard_error = rm40.residual_error
         offset_intercept = np.squeeze(rm40.y_offset_pred[0])
         return figure, intercept, standard_error, offset_intercept
 

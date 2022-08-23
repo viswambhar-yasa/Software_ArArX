@@ -210,24 +210,25 @@ def experiment_dashboard(server):
                         html.Table([
                             html.Tr([html.Th(['Isotopes']), html.Th(['Ar36']), html.Th(
                                 ['Ar37']), html.Th(['Ar38']), html.Th(['Ar39']), html.Th(['Ar40'])]),
-                            html.Tr([html.Th(['Regression Intercepts ']),
+                            html.Tr([html.Th(['Time offset Intercepts ']),
                                      html.Td(id='intercept_offset_A36'), html.Td(
                                 id='intercept_offset_A37'), html.Td(
                                 id='intercept_offset_A38'), html.Td(
                                 id='intercept_offset_A39'), html.Td(
                                 id='intercept_offset_A40')]),
-                            html.Tr([html.Th(['Intercepts Coefficient']),
+                           
+                            html.Tr([html.Th(['Residual error \u00B1']),
+                                     html.Td(id='loss_A36'), html.Td(
+                                id='loss_A37'), html.Td(
+                                id='loss_A38'), html.Td(
+                                id='loss_A39'), html.Td(
+                                id='loss_A40')]),
+                             html.Tr([html.Th(['Intercepts Coefficient']),
                                      html.Td(id='intercept_A36'), html.Td(
                                 id='intercept_A37'), html.Td(
                                 id='intercept_A38'), html.Td(
                                 id='intercept_A39'), html.Td(
                                 id='intercept_A40')]),
-                            html.Tr([html.Th(['Intercept Standara error \u00B1']),
-                                     html.Td(id='loss_A36'), html.Td(
-                                id='loss_A37'), html.Td(
-                                id='loss_A38'), html.Td(
-                                id='loss_A39'), html.Td(
-                                id='loss_A40')])
                         ])], style={'display': 'inline-block',
                                     'vertical-align': 'top',
                                     'width': '70%', "padding-left": '15px', "padding-bottom": '5px'}),

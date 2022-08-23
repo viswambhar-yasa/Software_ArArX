@@ -1,0 +1,47 @@
+Irradiation sample list,,,,,,,,,,,
+,,,,,,,,,,,
+Irradiation Batch No.: ,,,FGA016,,,,,,,,
+,,,,,,,,,,,
+"Convention: Plate mark (=Stiftloch!!!) at 12 o'clock, hole numbers clockwise, lowest plate = Plate No. 1",,,,,,,,,,,
+,,,,,,,,,,,
+Reactor:,,,,LVR-15 Rez (7.4 MW),,,,,,,
+Irradiation position:,,,,B5,,,,,,,
+Irradiation end date:,,,,03.12.2013,,,,,,,
+Irradiation end time:,,,,09:00,,,,,,,
+Irradiation duration [h]:,,,,1.83,,,,,,,
+,,,,,,,,,,,
+Irradiation plate type (No. of holes):,,,,S12,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+Plate,Hole,Sample,Sample,Capsule ,Capsule,Capsule +,Sample,Weight,Sample,Project,sample
+No.,No.,,material,material,(mg),sample (mg),weight,after,type,,owner
+,,,There must be a wrong abbreviation in one of the SAMPLE TYPE fields !!! ,,,,,irrad.,,,
+Summation,,,,,,,950.70,,,,
+,,,,,,,,,,,
+1,1,6818E2,Kf,Al,5.77,35.21,29.44,,sample,Pamir,Lothar
+1,1,FCT01,Kf,Al,3.96,7.08,3.12,,std,,
+1,2,996A1,Kf,Al,5.67,21.43,15.76,,sample,Pamir,Lothar
+1,3,9911B2,Bt,Al,3.9,10.28,6.38,,sample,Pamir,Lothar
+1,3,FCT01,Kf,Al,3.94,7.38,3.44,,std,,
+1,4,4726B2,Musc,Al,3.93,10.04,6.11,,sample,Pamir,Lothar
+1,5,4726B2,Kf,Al,5.67,33.84,28.17,,sample,Pamir,Lothar
+1,5,FCT01,Kf,Al,3.96,7.09,3.13,,std,,
+1,7,4726J1,Kf,Al,5.75,22.88,17.13,,sample,Pamir,Lothar
+1,7,FCT01,Kf,Al,3.96,7.42,3.46,,std,,
+1,8,9911D1,Kf,Al,5.65,55.45,49.8,,sample,Pamir,Lothar
+1,9,9917A1,Hbl,Al,5.88,55.7,49.82,,sample,Pamir,Lothar
+1,9,FCT01,Kf,Al,3.92,7.23,3.31,,std,,
+1,10,78271A,Hbl,Al,5.78,45.74,39.96,,sample,Pamir,Lothar_Blanka
+1,11,FCT01,Kf,Al,3.84,12.36,8.52,,std,,
+2,1,Phl_Daniel,Musc,Al,0,639.58,639.58,,sample,PhD_Daniel,Daniel
+3,1,FCT01,Kf,Al,3.93,7.18,3.25,,std,,
+3,2,MD2,Bt,Al,3.92,8.46,4.54,,sample,Labor,
+3,3,FCT01,Kf,Al,3.94,7.33,3.39,,std,,
+3,4,MD2,Bt,Al,3.81,7.82,4.01,,sample,Labor,
+3,5,FCT01,Kf,Al,3.92,7.08,3.16,,std,,
+3,7,FCT01,Kf,Al,3.93,7.31,3.38,,std,,
+3,8,MD2,Bt,Al,3.9,8.94,5.04,,sample,Labor,
+3,9,FCT01,Kf,Al,3.94,7.15,3.21,,std,,
+3,10,Lim_t3,Kf,Al,3.94,8.26,4.32,,sample,Labor,
+3,10,MK290,Musc,Al,3.91,9.72,5.81,,sample,Labor,
+3,11,FCT01,Kf,Al,3.96,7.42,3.46,,std,,

@@ -223,7 +223,6 @@ def check_steps(intensities_data, parameters):
 
 
 
-
 class Regression:
     def __init__(self, x, y,x_offset, quantile_range,option, regression_model) -> None:
         self.x_o=x
@@ -293,9 +292,13 @@ class Regression:
             self.y_pred = self.model.predict(self.x_poly)
             self.x_w_intercepts = PolynomialFeatures(
                 degree=2).fit_transform(self.x)
+            self.residual_error = np.sqrt(
+                (np.sum(np.square(self.y_pred-self.y))/(len(self.y)-3)))
         else:
             self.y_pred = self.model.predict(self.x)
             self.x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x)
+            self.residual_error = np.sqrt(
+                (np.sum(np.square(self.y_pred-self.y))/(len(self.y)-2)))
         self.residual = self.y-self.y_pred
         self.sum_of_squares = np.sum(
             (self.residual) ** 2)/(self.N-(self.P-1)-1)
@@ -364,6 +367,7 @@ class Regression:
                     degree=2, include_bias=False).fit(self.x_trim)
                 x_poly = poly.transform(self.x_trim)
                 optmodel = LinearRegression().fit(x_poly, self.y_trim)
+                
             elif self.model_type == 'Linear':
                 optmodel = LinearRegression().fit(self.x_trim, self.y_trim)
             elif self.model_type == 'Exponential':
@@ -375,10 +379,14 @@ class Regression:
             self.opt_model_parameters = np.append(np.squeeze(optmodel.coef_), optmodel.intercept_)
             self.optimized_model = optmodel
             if self.model_type == 'Quadratic':
-                y_pred = self.optimized_model.predict(x_poly)
+                y_pred = self.optimized_model.predict(self.x_trim)
+                self.residual_error = np.sqrt(
+                    (np.sum(np.square(y_pred-self.y_trim))/(len(self.y_trim)-3)))
                 self.x_w_intercepts = PolynomialFeatures(degree=2).fit_transform(self.x_trim)
             else:
                 y_pred = self.optimized_model.predict(self.x_trim)
+                self.residual_error = np.sqrt(
+                    (np.sum(np.square(y_pred-self.y_trim))/(len(self.y_trim)-2)))
                 self.x_w_intercepts = PolynomialFeatures(degree=1).fit_transform(self.x_trim)
             residual = self.y_trim-y_pred
             sum_of_squares = np.sum(
@@ -395,7 +403,8 @@ class Regression:
     def plot(self):
         self.optimized_regression_model()
         inp = self.x_o.reshape(-1, 1)
-        offset_inp=self.x_offset.reshape(-1, 1)
+        offset_inp = self.x_offset.reshape(-1, 1)
+
         if self.model_type=='Quadratic':
             poly = PolynomialFeatures(degree=2, include_bias=False).fit(inp)
             x_poly = poly.transform(inp)
@@ -407,7 +416,6 @@ class Regression:
                 self.model.predict(x_poly_offset))
             self.y_offset_pred = np.squeeze(
                 self.optimized_model.predict(x_poly_offset))
-            
         else:
             y_un_pred = np.squeeze(self.model.predict(inp))
             y_op_pred = np.squeeze(self.optimized_model.predict(inp))

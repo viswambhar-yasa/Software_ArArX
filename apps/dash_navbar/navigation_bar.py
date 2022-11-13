@@ -14,7 +14,7 @@ def Navbar():
                 dbc.NavItem(dbc.NavLink(
                     "Experiments", href="/experiment/", active='exact', external_link=True)),
                 dbc.NavItem(dbc.NavLink("Age Analysis",
-                            href="/age/", active='exact', external_link=True)),
+                            href="/age_analysis/", active='exact', external_link=True)),
             ],
             brand="Thermochronology",
             brand_href="/",

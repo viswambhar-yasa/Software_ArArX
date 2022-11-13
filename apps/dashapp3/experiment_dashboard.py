@@ -83,7 +83,7 @@ def experiment_dashboard(server):
         assigned_blank_intensities = pd.merge(intensities[['serial_nr', 'device', 'weight', 'method_name']].drop_duplicates(), blank_data,
                                               how='left', on='serial_nr')
         intensities_intercepts = pd.merge(
-            assigned_blank_intensities, experiment_intercepts, how='left', on='serial_nr')
+            assigned_blank_intensities, experiment_intercepts, how='left', on=['serial_nr'])
         header = Navbar()
         layout = html.Div([
             header,

@@ -8,7 +8,6 @@ def data_loading(file_name,type='replace',disp=False):
 
         final_data=[]
         for index,data in enumerate(f):
-            print(data)
             if index==2:
                 line_data=data.split(',')
                 filtering_data = [x for x in line_data if x.strip()]
@@ -66,6 +65,11 @@ def data_loading(file_name,type='replace',disp=False):
     pass
 
 
+#####################
+# replace or append
+load_type='replace'
+
+########################33
 if __name__ == "__main__":
     root_dir='.\data'
     onlyfiles = [os.path.join(root_dir, f) for f in os.listdir(root_dir) if
@@ -75,4 +79,4 @@ if __name__ == "__main__":
         if file_ext!='.irr':
             print('File format is not supported')
         else:
-            data_loading(file, type='replace',disp=False)
+            data_loading(file, type=load_type, disp=False)

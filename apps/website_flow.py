@@ -20,7 +20,7 @@ def login():
             session['SQLALCHEMY_DATABASE_URI']=url
             #scoped_session(Session())
             dcc.Store(id='db-url', data=url)
-            return redirect('/dashboard')
+            return redirect('/dashboard/')
         except Exception as e:
             dcc.Store(id='db-url', data=None)
             flash(
@@ -28,9 +28,9 @@ def login():
     return render_template("login.html")
 
 
-@website.route('/dashboard')
+@website.route('/dashboard/')
 def render_dashboard():
-    return redirect(url_for('/dashboard'))
+    return redirect(url_for('/dashboard/'))
 
 
 @website.route('/blanks')

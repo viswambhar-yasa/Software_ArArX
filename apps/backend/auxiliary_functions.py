@@ -64,7 +64,63 @@ def extract_intensities(conn, experiment_info):
         data['acq_datetime_num'] = data['acq_datetime_num'].apply(datenum)
     return data
 
+def extract_f_value(conn,exp_nr,f_interpolation,ar4036):
+    f_query=f"SELECT * FROM f_values order by date desc"
+    f_values = pd.read_sql(f_query, conn)
+    exp_query=f"SELECT serial_nr,exp_nr,tuning_file,acq_datetime FROM messung WHERE exp_nr={exp_nr}"
+    exp_values = pd.read_sql(exp_query, conn)
+    exp_values['acq_datetime_num']=exp_values['acq_datetime'].apply(str)
+    exp_values['acq_datetime_num'] = exp_values['acq_datetime_num'].apply(datenum)
+    exp_values['f']=0.0
+    exp_values['f_error']=0.0
+    f_values['date_num'] = f_values['date'].apply(str)
+    f_values['date_num'] = f_values['date_num'].apply(datenum)
+    for i in range(len(exp_values)):
+        if exp_values['tuning_file'][i] == 'Standard tuning.IPR':
+            exp_values['tuning_file'][i]='Standard tuning0810.IPR'
+        f_values_list=f_values[f_values['tuning_file']== exp_values['tuning_file'][i]]
+        n=len(f_values_list)-1
+        if exp_values['acq_datetime'][i]>f_values_list['date'][0]:
+            f = f_values_list['f'][0]
+            f_error = f_values_list['f_error'][0]
+        elif exp_values['acq_datetime'][i] < f_values_list['date'][n]:
+            f = f_values_list['f'][n]
+            f_error = f_values_list['f_error'][n]
+        else:
+            for j in range(n):
+                if f_interpolation!=0:
+                    if exp_values['acq_datetime'][i]<f_values_list['date'][j] and exp_values['acq_datetime'][i]>f_values_list['date'][j+1]:
+                        f = f_values_list['f'][j+1] + ((f_values_list['f'][j]-f_values_list['f'][j+1])/float(
+                            f_values_list['date_num'][j]-f_values['date_num'][j+1])*float(exp_values['acq_datetime_num'][i]-f_values['date_num'][j+1]))
+                        f_error = np.sqrt(np.square(1-(float(exp_values['acq_datetime_num'][i]-f_values['date_num'][j+1])/(float(f_values['date_num'][j]-f_values['date_num'][j+1]))))*np.square(f_values['f_error'][j+1])+\
+                                                np.square((float(exp_values['acq_datetime_num'][i]-f_values['date_num'][j+1])/(float(f_values['date_num'][j]-f_values['date_num'][j+1]))))*np.square(f_values['f_error'][j]))
+                        break                        
+                else:
+                    f= f_values_list['f'][j+1]
+                    f_error = f_values_list['f_error'][j+1]
+        exp_values.iloc[i,-2], exp_values.iloc[i,-1] = convert_f_ar4036(
+            f, f_error, 295.5, ar4036)
+    return exp_values
 
+def convert_f_ar4036(f,f_error,ar4036_in,ar4036_out):
+    f_out = 1 / (ar4036_in/ar4036_out * 1/f - 3/4 * ar4036_in/ar4036_out + 3/4)
+    f_out_error = ((16 * ar4036_in * ar4036_out) / (3 * ar4036_in * f - 4 * ar4036_in - 3 * ar4036_out * f)**2) * f_error
+    return f_out, f_out_error
+
+
+def correcting_intercepts(blank_intercepts,experiment_intercepts):
+    if blank_intercepts.empty:
+        return experiment_intercepts
+    else:
+        x=pd.merge(experiment_intercepts,blank_intercepts,how='left',left_on='blank_experiment_no',right_on='exp_nr')
+    #     print(x['ar36_intercept_x']-x['ar36_intercept_y'])
+    #     x['ar36_intercept_corrected']=x['ar36_intercept_x']-x['ar36_intercept_y']
+    #     x['ar37_intercept_corrected']=x['ar37_intercept_x']-x['ar37_intercept_y']
+    #     x['ar38_intercept_corrected']=x['ar38_intercept_x']-x['ar38_intercept_y']
+    #     x['ar39_intercept_corrected']=x['ar39_intercept_x']-x['ar39_intercept_y']
+    #     x['ar40_intercept_corrected']=x['ar40_intercept_x']-x['ar40_intercept_y']
+    # print(x[['serial_nr','device_x','weight_x','blank_experiment_no','a36_intercept_corrected','a37_intercept_corrected','a38_intercept_corrected','a39_intercept_corrected','a40_intercept_corrected']])
+        return 0
 def extract_blank_data(conn, blank_exps):
     query = f"SELECT mess.exp_nr,mess.serial_nr, mess.device, mess.acq_datetime,scan, mess.weight, mess.inlet_file, mess.tuning_file, mess.method_name,method_time_zeros.time AS d_method_name,inlet_method_equil_times.time AS d_inlet_file,CASE mess.device WHEN 'ir' THEN power.power WHEN 's' THEN ROUND((-0.00015 * temperatur.temp*temperatur.temp) + (1.478*temperatur.temp-547.6)) ELSE 0 END AS value,messwerte.scan, messwerte.mass, messwerte.start, messwerte.v36, messwerte.v37, messwerte.v38, messwerte.v39, messwerte.v40 FROM(SELECT * from messung WHERE exp_nr in {blank_exps}) mess LEFT JOIN POWER ON power.serial_nr = mess.serial_nr LEFT JOIN temperatur ON temperatur.serial_nr = mess.serial_nr LEFT JOIN method_time_zeros ON mess.method_name = method_time_zeros.method LEFT JOIN inlet_method_equil_times ON mess.inlet_file = inlet_method_equil_times.method LEFT JOIN messwerte ON mess.serial_nr = messwerte.serial_nr ORDER BY serial_nr, scan"
     blank_data = pd.read_sql(query, conn)
@@ -362,12 +418,13 @@ class Regression:
             if self.x_trim.ndim==1:
                 self.x_trim = self.x_trim.reshape(1,-1).T
             N, P = self.x_trim.shape
+            print(N,P )
             if self.model_type == 'Quadratic':
                 poly = PolynomialFeatures(
                     degree=2, include_bias=False).fit(self.x_trim)
                 x_poly = poly.transform(self.x_trim)
                 optmodel = LinearRegression().fit(x_poly, self.y_trim)
-                
+                 
             elif self.model_type == 'Linear':
                 optmodel = LinearRegression().fit(self.x_trim, self.y_trim)
             elif self.model_type == 'Exponential':
@@ -378,8 +435,9 @@ class Regression:
                 optmodel = BayesianRidge().fit(self.x_trim, self.y_trim)
             self.opt_model_parameters = np.append(np.squeeze(optmodel.coef_), optmodel.intercept_)
             self.optimized_model = optmodel
-            if self.model_type == 'Quadratic':
-                y_pred = self.optimized_model.predict(self.x_trim)
+            if self.model_type == 'Quadratic': 
+                x_poly = poly.transform(self.x_trim)
+                y_pred = self.optimized_model.predict(x_poly)
                 self.residual_error = np.sqrt(
                     (np.sum(np.square(y_pred-self.y_trim))/(len(self.y_trim)-3)))
                 self.x_w_intercepts = PolynomialFeatures(degree=2).fit_transform(self.x_trim)
